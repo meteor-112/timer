@@ -1,0 +1,22 @@
+# Vue 3 專案開發規範
+
+## 核心技術棧
+- 框架：Vue 3 (Composition API / <script setup>)
+- 語言：TypeScript (嚴格模式)
+- 樣式：Tailwind CSS (優先使用 Utility classes)
+- 狀態管理：Pinia
+- 動畫庫：GSAP (優先於 CSS 轉場)
+
+## 代碼風格規範
+- 變數命名：使用 camelCase，組件檔案使用 PascalCase。
+- TypeScript：必須明確定義 Props 與 Emits 的 Interface。
+- 註釋：重要邏輯請使用 **繁體中文** 撰寫註釋。
+- 動畫：所有的互動特效（Hover, Scroll）應考慮流暢度，優先使用 GSAP ScrollTrigger。
+
+## UI/UX 特殊需求
+- 設計風格：偏好活潑的設計風格，使用可愛的圖案和色彩。
+- 無障礙化: 無障礙化為優先考量，確保所有使用者都能夠順利使用。
+
+## 輸出要求
+- 不要生成過於冗長的解釋，優先提供正確的程式碼塊。
+- 保持原有的程式碼結構與註釋，不要隨意刪除。
