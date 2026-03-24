@@ -1,1 +1,48 @@
 @import "tailwindcss";
+
+:root {
+  --bg: #f0f2f2;
+  --theme: #9cafaa;
+  --text: #4f5d5d;
+  --green: #97ce50;
+  --blue: #acd7ff;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.card {
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(79, 93, 93, 0.12);
+  border-radius: 18px;
+  box-shadow: 0 10px 30px rgba(79, 93, 93, 0.06);
+  backdrop-filter: blur(10px);
+}
+
+.accent-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(156, 175, 170, 0.18);
+  border: 1px solid rgba(156, 175, 170, 0.35);
+  border-radius: 999px;
+}
