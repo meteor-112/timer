@@ -163,6 +163,58 @@ export function useAudioEngine() {
     return { ok: true, durationMs }
   }
 
+  async function playMp3OnceAutoDuration(
+    url: string,
+    opts?: { offsetMs?: number; volume?: number; maxDurationMs?: number },
+  ): Promise<PlayResult> {
+    const res = await ensureUnlocked()
+    if (!res.ok) return res
+
+    const offsetMs = opts?.offsetMs ?? 0
+    const maxDurationMs = opts?.maxDurationMs ?? 10 * 60 * 1000
+
+    const audio = new Audio(url)
+    audio.preload = 'metadata'
+    audio.volume = typeof opts?.volume === 'number' ? Math.max(0, Math.min(1, opts.volume)) : 0.9
+    if (offsetMs > 0) audio.currentTime = offsetMs / 1000
+
+    const durationMs = await new Promise<number>((resolve) => {
+      const fallback = window.setTimeout(() => resolve(Math.min(maxDurationMs, 30_000)), 1200)
+      audio.addEventListener(
+        'loadedmetadata',
+        () => {
+          window.clearTimeout(fallback)
+          const d = Number.isFinite(audio.duration) ? Math.max(0, Math.floor(audio.duration * 1000)) : 0
+          resolve(d > 0 ? Math.min(d, maxDurationMs) : Math.min(maxDurationMs, 30_000))
+        },
+        { once: true },
+      )
+      audio.addEventListener(
+        'error',
+        () => {
+          window.clearTimeout(fallback)
+          resolve(Math.min(maxDurationMs, 30_000))
+        },
+        { once: true },
+      )
+    })
+
+    void audio.play().catch(() => {
+      // ignore
+    })
+
+    window.setTimeout(() => {
+      try {
+        audio.pause()
+        audio.currentTime = 0
+      } catch {
+        // ignore
+      }
+    }, durationMs + 30)
+
+    return { ok: true, durationMs }
+  }
+
   async function playMp3OnceUrl(url: string, opts?: { durationMs?: number; offsetMs?: number; volume?: number }): Promise<
     PlayResult
   > {
@@ -249,6 +301,7 @@ export function useAudioEngine() {
     warmup,
     ensureUnlocked,
     playMp3OnceUrl,
+    playMp3OnceAutoDuration,
     playFragment,
     playNote,
     playReminder,

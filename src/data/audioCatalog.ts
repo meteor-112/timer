@@ -7,7 +7,7 @@ export type FragmentType = {
   trackAudioUrl: string
 }
 
-export const FOCUS_INTERVAL_MINUTES = 25
+export const FOCUS_INTERVAL_MINUTES = 5
 
 export const REMINDER_DURATION_MS = 3_000
 export const FRAGMENT_DURATION_MS = 5_000

@@ -7,6 +7,7 @@ import { useFragmentsStore } from '@/stores/fragments';
 import { useMusicStore } from '@/stores/music';
 import { useBackgroundStore } from '@/stores/background';
 import { ChevronDown, ChevronUp, Play, Pause, RotateCcw } from 'lucide-vue-next';
+import { FOCUS_INTERVAL_MINUTES, getFragmentById } from '@/data/audioCatalog';
 
 const timer = useTimerStore();
 const downMinutes = ref(25);
@@ -17,42 +18,87 @@ const background = useBackgroundStore();
 
 // --- Modal 相關狀態 ---
 const showCompletionModal = ref(false);
-const completion = ref({
-  step: 0,
-  duration: 0,
-  fragments: [] as any[],
-});
+const completionStep = ref(0);
+const completionMinutes = ref(0);
+const completionItems = ref<Array<{ kind: 'fragment'; fragmentId: string } | { kind: 'unlock'; fragmentId: string }>>(
+  [],
+);
+const lastPlayedStep = ref(-1);
+const currentCompletionItem = computed(() => completionItems.value[completionStep.value - 1] ?? null);
 
 /**
  * 關閉或進入下一個 Modal 步驟
  */
 function nextCompletionStep() {
-  if (completion.value.step < completion.value.fragments.length) {
-    completion.value.step++;
-  } else {
+  const hasMore = completionStep.value < completionItems.value.length;
+  if (completionStep.value === 0 && !hasMore) {
     showCompletionModal.value = false;
-    completion.value.step = 0;
-    timer.stop(); // 流程完全結束後回到 idle
+    completionStep.value = 0;
+    timer.stop();
+    return;
+  }
+
+  if (hasMore) completionStep.value++;
+  else {
+    showCompletionModal.value = false;
+    completionStep.value = 0;
+    timer.stop();
   }
 }
 
 /**
- * 偵測計時器狀態，若結束且超過 25 分鐘則顯示 Modal
+ * 偵測計時器狀態，若結束且超過門檻則顯示 Modal
  */
 watch(
   () => timer.status,
   (newStatus) => {
     if (newStatus === 'ended') {
-      const durationSec = Math.floor(timer.elapsedMs / 1000);
+      const minutes = Math.floor(timer.elapsedMs / (60 * 1000));
+      if (minutes < FOCUS_INTERVAL_MINUTES) return;
 
-      // 條件：計時結束且累積超過 25 分鐘 (1500秒)
-      if (durationSec >= 300) {
-        completion.value.duration = durationSec;
-        // 假設從 fragmentsStore 獲取本次獲得的碎片（這裡模擬數據，你可根據實際邏輯調整）
-        completion.value.fragments = fragments.lastObtainedFragments || [];
-        completion.value.step = 0;
-        showCompletionModal.value = true;
-      }
+      completionMinutes.value = minutes;
+
+      const rewards = timer.sessionRewards ?? [];
+      const fragmentItems = rewards.map((r) => ({ kind: 'fragment' as const, fragmentId: r.fragmentId }));
+      const unlockIds = Array.from(new Set(rewards.filter((r) => r.unlocked).map((r) => r.fragmentId)));
+      const unlockItems = unlockIds.map((id) => ({ kind: 'unlock' as const, fragmentId: id }));
+
+      completionItems.value = [...fragmentItems, ...unlockItems];
+      completionStep.value = 0;
+      lastPlayedStep.value = -1;
+      showCompletionModal.value = true;
+    }
+  },
+);
+
+watch(
+  () => [showCompletionModal.value, completionStep.value],
+  async () => {
+    if (!showCompletionModal.value) return;
+    if (completionStep.value <= 0) return;
+    if (lastPlayedStep.value === completionStep.value) return;
+
+    const item = completionItems.value[completionStep.value - 1];
+    if (!item) return;
+
+    lastPlayedStep.value = completionStep.value;
+
+    if (item.kind === 'fragment') {
+      await audio.playFragment(item.fragmentId).catch(() => {
+        // ignore
+      });
+      return;
+    }
+
+    const url = getFragmentById(item.fragmentId)?.trackAudioUrl;
+    if (url) {
+      await audio.playMp3OnceAutoDuration(url, { offsetMs: 0, volume: 0.95 }).catch(() => {
+        // ignore
+      });
+    } else {
+      await audio.playNote(item.fragmentId, { offsetMs: 60 }).catch(() => {
+        // ignore
+      });
     }
   },
 );
@@ -158,7 +204,7 @@ async function handleResume() {
     >
       <button
         class="glass-panel rounded-full p-1 transition-transform hover:scale-110 disabled:opacity-30"
-        @click="downMinutes = Math.max(25, downMinutes - 5)"
+        @click="downMinutes = Math.max(5, downMinutes - 5)"
         :disabled="timer.status !== 'idle'"
       >
         <ChevronDown class="h-4 w-4" />
@@ -213,50 +259,36 @@ async function handleResume() {
           class="glass-panel animate-scale-in mx-4 w-full max-w-sm rounded-2xl p-8 text-center shadow-2xl"
           @click.stop
         >
-          <div v-if="completion.step === 0">
-            <div class="mb-4 text-4xl">🎉</div>
-            <h2 class="mb-2 text-xl font-semibold">恭喜完成專注！</h2>
-            <p class="text-muted-foreground mb-4">
-              你專注了 {{ Math.floor(completion.duration / 60) }} 分 {{ completion.duration % 60 }} 秒
-            </p>
+          <div v-if="completionStep === 0">
+            <h2 class="mb-2 text-xl font-semibold">恭喜！</h2>
+            <p class="text-muted-foreground mb-5">您已專注 {{ completionMinutes }} 分鐘！</p>
             <button @click="nextCompletionStep" class="glass-panel-primary rounded-full px-6 py-2 text-sm font-medium">
-              查看獲得的碎片
+              {{ completionItems.length ? '繼續' : '關閉' }}
             </button>
           </div>
 
           <div v-else>
-            <template v-if="completion.fragments[completion.step - 1]">
-              <div class="animate-float mb-4 text-5xl">
-                {{ completion.fragments[completion.step - 1].icon }}
-              </div>
-              <h3 class="mb-1 text-lg font-semibold">
-                {{ completion.fragments[completion.step - 1].isNew ? '🆕 初次獲得！' : '' }}
-              </h3>
-              <p class="mb-2 text-xl font-medium">{{ completion.fragments[completion.step - 1].name }}</p>
+            <template v-if="currentCompletionItem">
+              <template v-if="currentCompletionItem.kind === 'fragment'">
+                <div class="mb-2 text-sm font-medium" style="color: rgba(79, 93, 93, 0.78)">獲得碎片</div>
+                <div class="mb-5 text-2xl font-semibold" style="color: var(--text)">
+                  {{ fragments.getFragmentLabel(currentCompletionItem.fragmentId) }}
+                </div>
+              </template>
 
-              <div
-                v-if="completion.fragments[completion.step - 1].justUnlocked"
-                class="glass-panel-accent animate-fade-in mb-4 rounded-xl px-4 py-3"
-              >
-                <p class="text-sm font-semibold">🎵 音軌已解鎖！</p>
-                <p class="text-muted-foreground text-xs">集齊 4 個碎片，完整音軌已可播放</p>
-              </div>
+              <template v-else>
+                <div class="mb-2 text-sm font-medium" style="color: rgba(79, 93, 93, 0.78)">解鎖成功</div>
+                <div class="mb-1 text-2xl font-semibold" style="color: var(--text)">
+                  已解鎖「{{ fragments.getFragmentLabel(currentCompletionItem.fragmentId) }}」唱片
+                </div>
+                <div class="text-muted-foreground mb-5 text-sm">完整音軌已可播放</div>
+              </template>
 
               <button
                 @click="nextCompletionStep"
                 class="glass-panel-primary rounded-full px-6 py-2 text-sm font-medium"
               >
-                {{ completion.step < completion.fragments.length ? '下一個' : '完成' }}
-              </button>
-            </template>
-
-            <template v-else>
-              <p class="text-muted-foreground mb-4">沒有更多碎片了</p>
-              <button
-                @click="nextCompletionStep"
-                class="glass-panel-primary rounded-full px-6 py-2 text-sm font-medium"
-              >
-                完成
+                {{ completionStep < completionItems.length ? '繼續' : '關閉' }}
               </button>
             </template>
           </div>

@@ -24,6 +24,7 @@ export const useTimerStore = defineStore('timer', () => {
   const startedAtMs = ref<number | null>(null);
   const elapsedBeforeMs = ref(0);
   const segmentIndex = ref(0); // 已觸發了第幾個 25 分片段（0 表示尚未觸發）
+  const sessionRewards = ref<Array<{ fragmentId: string; unlocked: boolean; collectedAt: number }>>([]);
 
   const tickNowMs = ref(Date.now());
 
@@ -74,7 +75,8 @@ export const useTimerStore = defineStore('timer', () => {
     const audio = useAudioEngine();
     const fragments = useFragmentsStore();
     await audio.playReminder(milestoneIdx);
-    await fragments.collectRandomFragment();
+    const res = await fragments.collectRandomFragment();
+    sessionRewards.value.push({ ...res, collectedAt: Date.now() });
   }
 
   async function startBackgroundPlayback() {
@@ -145,6 +147,12 @@ export const useTimerStore = defineStore('timer', () => {
         status.value = 'ended';
         clearTicker();
         stopBackgroundPlayback();
+        if (elapsed >= INTERVAL_MS) {
+          const audio = useAudioEngine();
+          void audio.playReminder(segmentIndex.value).catch(() => {
+            // ignore
+          });
+        }
       }
     }, TICK_MS);
   }
@@ -156,6 +164,7 @@ export const useTimerStore = defineStore('timer', () => {
     startedAtMs.value = Date.now();
     elapsedBeforeMs.value = 0;
     segmentIndex.value = 0;
+    sessionRewards.value = [];
     startTicker();
     void startBackgroundPlayback();
   }
@@ -167,6 +176,7 @@ export const useTimerStore = defineStore('timer', () => {
     startedAtMs.value = Date.now();
     elapsedBeforeMs.value = 0;
     segmentIndex.value = 0;
+    sessionRewards.value = [];
     startTicker();
     void startBackgroundPlayback();
   }
@@ -194,6 +204,7 @@ export const useTimerStore = defineStore('timer', () => {
     startedAtMs.value = null;
     elapsedBeforeMs.value = 0;
     segmentIndex.value = 0;
+    sessionRewards.value = [];
     clearTicker();
     stopBackgroundPlayback();
   }
@@ -239,6 +250,7 @@ export const useTimerStore = defineStore('timer', () => {
     cycleProgress01,
     nextMilestoneInMs,
     displayTime,
+    sessionRewards,
     startUp,
     startDown,
     pause,
