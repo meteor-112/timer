@@ -144,12 +144,6 @@ const backgroundValue = computed({
   },
 });
 
-watch(
-  () => [background.selectedKind, background.selectedTrackId, timer.status],
-  () => {
-    if (timer.status === 'running') timer.restartBackground();
-  },
-);
 
 watch(
   downMinutes,

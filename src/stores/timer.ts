@@ -74,46 +74,9 @@ export const useTimerStore = defineStore('timer', () => {
     // 25 分鐘提醒 + 隨機音碎片
     const audio = useAudioEngine();
     const fragments = useFragmentsStore();
-    await audio.playReminder(milestoneIdx);
-    const res = await fragments.collectRandomFragment();
-    sessionRewards.value.push({ ...res, collectedAt: Date.now() });
-  }
-
-  async function startBackgroundPlayback() {
-    stopBackgroundPlayback();
-
-    const background = useBackgroundStore();
-    const audio = useAudioEngine();
-    const music = useMusicStore();
-
-    if (background.state.kind === 'none') return;
-
-    if (background.state.kind === 'note') {
-      const res = await audio.playNote(background.state.trackId);
-      const durationMs = res.durationMs ?? 1500;
-      backgroundTimeoutHandle = window.setTimeout(
-        () => {
-          if (status.value === 'running') void startBackgroundPlayback();
-        },
-        Math.max(500, durationMs + 60),
-      );
-      return;
-    }
-
-    if (background.state.kind === 'record') {
-      const record = music.getRecordById(background.state.trackId);
-      if (!record) return;
-      const url = await music.getRecordMp3ObjectUrl(record.id);
-      if (url) {
-        await audio.playMp3OnceUrl(url, { durationMs: 30_000 });
-      } else {
-        // 若尚未生成 mp3，先用合成播放
-        await audio.playRecordByNoteIds(record.noteIds);
-      }
-      backgroundTimeoutHandle = window.setTimeout(() => {
-        if (status.value === 'running') void startBackgroundPlayback();
-      }, 30_000);
-    }
+    await audio.playReminder(milestoneIdx);//播放 25 分鐘提醒音
+    const res = await fragments.collectRandomFragment();//靜默獲取隨機碎片
+    sessionRewards.value.push({ ...res, collectedAt: Date.now() });//紀錄到 session，供結算 Modal 顯示
   }
 
   function startTicker() {
@@ -146,7 +109,6 @@ export const useTimerStore = defineStore('timer', () => {
       if (mode.value === 'down' && totalDurationMs.value != null && elapsed >= totalDurationMs.value) {
         status.value = 'ended';
         clearTicker();
-        stopBackgroundPlayback();
         if (elapsed >= INTERVAL_MS) {
           const audio = useAudioEngine();
           void audio.playReminder(segmentIndex.value).catch(() => {
@@ -166,7 +128,6 @@ export const useTimerStore = defineStore('timer', () => {
     segmentIndex.value = 0;
     sessionRewards.value = [];
     startTicker();
-    void startBackgroundPlayback();
   }
 
   function startDown(durationMinutes: number): void {
@@ -178,7 +139,6 @@ export const useTimerStore = defineStore('timer', () => {
     segmentIndex.value = 0;
     sessionRewards.value = [];
     startTicker();
-    void startBackgroundPlayback();
   }
 
   function pause(): void {
@@ -195,7 +155,6 @@ export const useTimerStore = defineStore('timer', () => {
     status.value = 'running';
     startedAtMs.value = Date.now();
     startTicker();
-    void startBackgroundPlayback();
   }
 
   function stop(): void {
@@ -256,7 +215,6 @@ export const useTimerStore = defineStore('timer', () => {
     pause,
     resume,
     stop,
-    restartBackground: () => void startBackgroundPlayback(),
     formatDuration,
   };
 });

@@ -1,107 +1,115 @@
 <script setup lang="ts">
-import { computed, onUnmounted, ref } from 'vue'
-import { Play, Square } from 'lucide-vue-next'
-import { FRAGMENT_TYPES, getFragmentById } from '@/data/audioCatalog'
-import { useFragmentsStore } from '@/stores/fragments'
-import { useMusicStore } from '@/stores/music'
+import { computed, onUnmounted, ref } from 'vue';
+import { Play, Square } from 'lucide-vue-next';
+import { FRAGMENT_TYPES, getFragmentById } from '@/data/audioCatalog';
+import { useFragmentsStore } from '@/stores/fragments';
+import { useMusicStore } from '@/stores/music';
+import { useBackgroundStore } from '@/stores/background';
 
-const fragments = useFragmentsStore()
-const music = useMusicStore()
+const fragments = useFragmentsStore();
+const music = useMusicStore();
 
-type SelectionKind = 'note' | 'record'
+type SelectionKind = 'note' | 'record';
 
-const kind = ref<SelectionKind>('note')
-const selectedNoteId = ref<string>('')
-const selectedRecordId = ref<string>('')
+const kind = ref<SelectionKind>('note');
+const selectedNoteId = ref<string>('');
+const selectedRecordId = ref<string>('');
 
-const acquiredNotes = computed(() => FRAGMENT_TYPES.filter((f) => fragments.getCount(f.id) > 0))
+const acquiredNotes = computed(() => FRAGMENT_TYPES.filter((f) => fragments.getCount(f.id) > 0));
 
 const selectedLabel = computed(() => {
-  if (kind.value === 'note') return fragments.getFragmentLabel(selectedNoteId.value)
-  const rec = music.getRecordById(selectedRecordId.value)
-  return rec?.name ?? '唱片'
-})
+  if (kind.value === 'note') return fragments.getFragmentLabel(selectedNoteId.value);
+  const rec = music.getRecordById(selectedRecordId.value);
+  return rec?.name ?? '唱片';
+});
 
-const isPlaying = ref(false)
-let audioEl: HTMLAudioElement | null = null
-let recordLoopHandle: number | null = null
+const background = useBackgroundStore();
+const isPlaying = computed({
+  get: () => background.isActive,
+  set: (val) => {
+    background.isActive = val;
+  },
+});
+
+let audioEl: HTMLAudioElement | null = null;
+let recordLoopHandle: number | null = null;
 
 function stop() {
-  isPlaying.value = false
+  isPlaying.value = false;
   if (recordLoopHandle != null) {
-    window.clearTimeout(recordLoopHandle)
-    recordLoopHandle = null
+    window.clearTimeout(recordLoopHandle);
+    recordLoopHandle = null;
   }
   if (audioEl) {
     try {
-      audioEl.pause()
-      audioEl.currentTime = 0
+      audioEl.pause();
+      audioEl.currentTime = 0;
     } catch {
       // ignore
     }
-    audioEl = null
+    audioEl = null;
   }
 }
 
 async function startLoop() {
-  stop()
+  stop();
 
   if (kind.value === 'note') {
-    const id = selectedNoteId.value
-    if (!id) return
-    const url = getFragmentById(id)?.trackAudioUrl
-    if (!url) return
+    const id = selectedNoteId.value;
+    if (!id) return;
+    const url = getFragmentById(id)?.trackAudioUrl;
+    if (!url) return;
 
-    audioEl = new Audio(url)
-    audioEl.loop = true
-    audioEl.volume = 0.95
-    isPlaying.value = true
+    audioEl = new Audio(url);
+    audioEl.loop = true;
+    audioEl.volume = 0.95;
+    isPlaying.value = true;
     void audioEl.play().catch(() => {
-      stop()
-    })
-    return
+      stop();
+    });
+    return;
   }
 
-  const recordId = selectedRecordId.value
-  if (!recordId) return
+  const recordId = selectedRecordId.value;
+  if (!recordId) return;
 
   // 優先用 mp3 來 loop
-  const ok = await music.ensureRecordMp3(recordId).catch(() => false)
+  const ok = await music.ensureRecordMp3(recordId).catch(() => false);
   if (ok) {
-    const url = await music.getRecordMp3ObjectUrl(recordId)
+    const url = await music.getRecordMp3ObjectUrl(recordId);
     if (url) {
-      audioEl = new Audio(url)
-      audioEl.loop = true
-      audioEl.volume = 0.95
-      isPlaying.value = true
+      audioEl = new Audio(url);
+      audioEl.loop = true;
+      audioEl.volume = 0.95;
+      isPlaying.value = true;
       void audioEl.play().catch(() => {
-        stop()
-      })
-      return
+        stop();
+      });
+      return;
     }
   }
 
   // fallback：用 30 秒一次的播放做簡易循環
-  isPlaying.value = true
+  isPlaying.value = true;
   const playOnceThenSchedule = async () => {
-    if (!isPlaying.value) return
+    if (!isPlaying.value) return;
     await music.playRecord(recordId).catch(() => {
       // ignore
-    })
-    if (!isPlaying.value) return
+    });
+    if (!isPlaying.value) return;
     recordLoopHandle = window.setTimeout(() => {
-      void playOnceThenSchedule()
-    }, 30_000)
-  }
-  void playOnceThenSchedule()
+      void playOnceThenSchedule();
+    }, 30_000);
+  };
+  void playOnceThenSchedule();
 }
 
 function togglePlay() {
-  if (isPlaying.value) stop()
-  else void startLoop()
+  if (isPlaying.value) stop();
+  else void startLoop();
 }
 
-onUnmounted(() => stop())
+onUnmounted(() => stop());
 </script>
 
 <template>
@@ -111,8 +119,13 @@ onUnmounted(() => stop())
     </div>
 
     <div class="player-controls">
-      <button class="big-play" @click="togglePlay" :disabled="kind === 'note' ? !selectedNoteId : !selectedRecordId" aria-label="播放/停止">
-        <Play v-if="!isPlaying" class="h-7 w-7 ml-0.5" />
+      <button
+        class="big-play"
+        @click="togglePlay"
+        :disabled="kind === 'note' ? !selectedNoteId : !selectedRecordId"
+        aria-label="播放/停止"
+      >
+        <Play v-if="!isPlaying" class="ml-0.5 h-7 w-7" />
         <Square v-else class="h-6 w-6" />
       </button>
     </div>
@@ -224,4 +237,3 @@ onUnmounted(() => stop())
   text-align: center;
 }
 </style>
-
