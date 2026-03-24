@@ -20,11 +20,16 @@ const background = useBackgroundStore();
 const showCompletionModal = ref(false);
 const completionStep = ref(0);
 const completionMinutes = ref(0);
-const completionItems = ref<Array<{ kind: 'fragment'; fragmentId: string } | { kind: 'unlock'; fragmentId: string }>>(
-  [],
-);
+interface CompletionItem {
+  kind: 'fragment' | 'unlock';
+  fragmentId: string;
+}
+const completionItems = ref<CompletionItem[]>([]);
 const lastPlayedStep = ref(-1);
 const currentCompletionItem = computed(() => completionItems.value[completionStep.value - 1] ?? null);
+
+// 計算當前是否允許切換模式（只有在 idle 狀態下才允許）
+const canSwitchMode = computed(() => timer.status === 'idle');
 
 /**
  * 關閉或進入下一個 Modal 步驟
@@ -84,21 +89,15 @@ watch(
     lastPlayedStep.value = completionStep.value;
 
     if (item.kind === 'fragment') {
-      await audio.playFragment(item.fragmentId).catch(() => {
-        // ignore
-      });
+      await audio.playFragment(item.fragmentId).catch(() => {});
       return;
     }
 
     const url = getFragmentById(item.fragmentId)?.trackAudioUrl;
     if (url) {
-      await audio.playMp3OnceAutoDuration(url, { offsetMs: 0, volume: 0.95 }).catch(() => {
-        // ignore
-      });
+      await audio.playMp3OnceAutoDuration(url, { offsetMs: 0, volume: 0.95 }).catch(() => {});
     } else {
-      await audio.playNote(item.fragmentId, { offsetMs: 60 }).catch(() => {
-        // ignore
-      });
+      await audio.playNote(item.fragmentId, { offsetMs: 60 }).catch(() => {});
     }
   },
 );
@@ -107,6 +106,9 @@ watch(
  * 切換模式並重置
  */
 function switchMode(newMode: 'up' | 'down') {
+  // 防禦性檢查：計時中不可切換
+  if (!canSwitchMode.value) return;
+
   timer.stop();
   timer.mode = newMode;
   if (newMode === 'down') {
@@ -144,7 +146,6 @@ const backgroundValue = computed({
   },
 });
 
-
 watch(
   downMinutes,
   (newMin) => {
@@ -174,18 +175,24 @@ async function handleResume() {
     <div class="flex gap-2">
       <button
         @click="switchMode('down')"
+        :disabled="!canSwitchMode"
+        aria-label="切換至倒計時模式"
         :class="[
           'rounded-full px-4 py-1.5 text-sm font-medium transition-all',
           timer.mode === 'down' ? 'bg-white shadow-sm' : 'bg-gray-300 opacity-60',
+          !canSwitchMode ? 'cursor-not-allowed opacity-40' : 'hover:bg-white/80',
         ]"
       >
         倒計時
       </button>
       <button
         @click="switchMode('up')"
+        :disabled="!canSwitchMode"
+        aria-label="切換至正計時模式"
         :class="[
           'rounded-full px-4 py-1.5 text-sm font-medium transition-all',
           timer.mode === 'up' ? 'bg-white shadow-sm' : 'bg-gray-300 opacity-60',
+          !canSwitchMode ? 'cursor-not-allowed opacity-40' : 'hover:bg-white/80',
         ]"
       >
         正計時
@@ -200,14 +207,16 @@ async function handleResume() {
         class="glass-panel rounded-full p-1 transition-transform hover:scale-110 disabled:opacity-30"
         @click="downMinutes = Math.max(5, downMinutes - 5)"
         :disabled="timer.status !== 'idle'"
+        aria-label="減少五分鐘"
       >
         <ChevronDown class="h-4 w-4" />
       </button>
-      <span class="text-muted-foreground text-sm font-medium">{{ downMinutes }}分鐘</span>
+      <span class="text-muted-foreground text-sm font-medium" aria-live="polite">{{ downMinutes }}分鐘</span>
       <button
         class="glass-panel rounded-full p-1 transition-transform hover:scale-110 disabled:opacity-30"
         @click="downMinutes = Math.min(120, downMinutes + 5)"
         :disabled="timer.status !== 'idle'"
+        aria-label="增加五分鐘"
       >
         <ChevronUp class="h-4 w-4" />
       </button>
@@ -215,7 +224,9 @@ async function handleResume() {
 
     <WaveBall :is-running="timer.status === 'running'" />
 
-    <div class="font-display text-foreground text-5xl font-light tracking-widest">{{ timer.displayTime }}</div>
+    <div class="font-display text-foreground text-5xl font-light tracking-widest" aria-live="numeric">
+      {{ timer.displayTime }}
+    </div>
 
     <div class="flex items-center gap-4">
       <button
@@ -224,6 +235,7 @@ async function handleResume() {
           timer.status === 'paused' ? handleResume() : timer.mode === 'down' ? warmAndStartDown() : warmAndStartUp()
         "
         class="glass-panel-primary flex h-14 w-14 items-center justify-center rounded-full transition-transform hover:scale-105"
+        :aria-label="timer.status === 'paused' ? '繼續計時' : '開始計時'"
       >
         <Play class="text-foreground ml-0.5 h-6 w-6" />
       </button>
@@ -231,6 +243,7 @@ async function handleResume() {
         v-else
         @click="timer.pause()"
         class="glass-panel-primary flex h-14 w-14 items-center justify-center rounded-full transition-transform hover:scale-105"
+        aria-label="暫停計時"
       >
         <Pause class="text-foreground h-6 w-6" />
       </button>
@@ -238,6 +251,7 @@ async function handleResume() {
         v-if="timer.status !== 'idle'"
         @click="handleResetToInitial"
         class="glass-panel flex h-10 w-10 items-center justify-center rounded-full transition-transform hover:scale-105"
+        aria-label="重置計時器"
       >
         <RotateCcw class="text-muted-foreground h-4 w-4" />
       </button>
@@ -248,6 +262,8 @@ async function handleResume() {
         v-if="showCompletionModal"
         class="bg-foreground/20 fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm"
         @click="nextCompletionStep"
+        role="dialog"
+        aria-modal="true"
       >
         <div
           class="glass-panel animate-scale-in mx-4 w-full max-w-sm rounded-2xl p-8 text-center shadow-2xl"
@@ -260,24 +276,21 @@ async function handleResume() {
               {{ completionItems.length ? '繼續' : '關閉' }}
             </button>
           </div>
-
           <div v-else>
             <template v-if="currentCompletionItem">
               <template v-if="currentCompletionItem.kind === 'fragment'">
-                <div class="mb-2 text-sm font-medium" style="color: rgba(79, 93, 93, 0.78)">獲得碎片</div>
-                <div class="mb-5 text-2xl font-semibold" style="color: var(--text)">
+                <div class="mb-2 text-sm font-medium text-slate-500/80">獲得碎片</div>
+                <div class="text-foreground mb-5 text-2xl font-semibold">
                   {{ fragments.getFragmentLabel(currentCompletionItem.fragmentId) }}
                 </div>
               </template>
-
               <template v-else>
-                <div class="mb-2 text-sm font-medium" style="color: rgba(79, 93, 93, 0.78)">解鎖成功</div>
-                <div class="mb-1 text-2xl font-semibold" style="color: var(--text)">
+                <div class="mb-2 text-sm font-medium text-slate-500/80">解鎖成功</div>
+                <div class="text-foreground mb-1 text-2xl font-semibold">
                   已解鎖「{{ fragments.getFragmentLabel(currentCompletionItem.fragmentId) }}」唱片
                 </div>
                 <div class="text-muted-foreground mb-5 text-sm">完整音軌已可播放</div>
               </template>
-
               <button
                 @click="nextCompletionStep"
                 class="glass-panel-primary rounded-full px-6 py-2 text-sm font-medium"
