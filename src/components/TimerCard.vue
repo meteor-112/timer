@@ -224,7 +224,7 @@ async function handleResume() {
 
     <WaveBall :is-running="timer.status === 'running'" />
 
-    <div class="font-display text-foreground text-5xl font-light tracking-widest" aria-live="numeric">
+    <div class="font-display text-foreground text-5xl font-light tracking-widest" aria-live="polite">
       {{ timer.displayTime }}
     </div>
 
