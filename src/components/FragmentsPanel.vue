@@ -1,145 +1,178 @@
 <script setup lang="ts">
-import { computed, onUnmounted, ref } from 'vue'
-import { FRAGMENT_TYPES, NOTE_MAX_DURATION_MS, getFragmentById } from '@/data/audioCatalog'
-import { useFragmentsStore } from '@/stores/fragments'
+import { computed, onUnmounted, ref } from 'vue';
+import { FRAGMENT_TYPES, NOTE_MAX_DURATION_MS, getFragmentById } from '@/data/audioCatalog';
+import { useFragmentsStore } from '@/stores/fragments';
 
-const fragments = useFragmentsStore()
+/**初始化 Pinia Store
+ * 用於獲取當前使用者的音軌收集進度與狀態
+ */
+const fragments = useFragmentsStore();
 
+/**
+ * 計算屬性：格式化收集摘要文字
+ * 依賴 fragments.collectionSummary，當 Store 資料更新時自動重新計算
+ */
 const summaryText = computed(() => {
-  const s = fragments.collectionSummary
-  return `總收集 ${s.totalCollected} / 已解鎖 ${s.unlockedCount} 個音軌`
-})
+  const s = fragments.collectionSummary;
+  const all = FRAGMENT_TYPES.length;
+  return `已解鎖 ${s.unlockedCount}/${all} 個音軌`;
+});
 
+/**
+ * 計算百分比函數(收集進度條)
+ * 參數： count - 當前收集數量
+ * 返回值： 0-100 的整數，用於 UI 進度條顯示
+ * 邏輯：以 4 個為一個基準單位計算完成率，最高不超過 100%
+ */
 function pct(count: number): number {
-  return Math.min(100, Math.floor((count / 4) * 100))
+  return Math.min(100, Math.floor((count / 4) * 100));
 }
 
-const playingId = ref<string | null>(null)
-let playingAudio: HTMLAudioElement | null = null
-let playingStopHandle: number | null = null
+const displayFragments = computed(() => {
+  return FRAGMENT_TYPES.map((f) => {
+    const count = fragments.getCount(f.id);
+    const progress = pct(count);
+    return {
+      ...f,
+      count,
+      progress,
+      isUnlocked: count >= 4,
+      isDiscovered: count >= 1,
+    };
+  });
+});
+// --- 音訊播放控制狀態 ---
 
+//追蹤當前播放中的碎片 ID (用於 UI 響應式切換按鈕文字)
+const playingId = ref<string | null>(null);
+//儲存原生的 Audio HTML 物件引用 (不使用 ref 以優化效能)
+let playingAudio: HTMLAudioElement | null = null;
+// 儲存自動停止用的計時器 Handle
+let playingStopHandle: number | null = null;
+
+//停止播放函式
 function stopListening() {
-  playingId.value = null
+  playingId.value = null; //靜止中
+
+  // 清除尚未觸發的超時保護計時器
   if (playingStopHandle != null) {
-    window.clearTimeout(playingStopHandle)
-    playingStopHandle = null
+    window.clearTimeout(playingStopHandle); //clearTimeout 確保之前的自動停止邏輯不會影響到下一個聲音。
+    playingStopHandle = null;
   }
+  // 停止播放並重置音訊時間軸(使用原生物件)
   if (playingAudio) {
     try {
-      playingAudio.pause()
-      playingAudio.currentTime = 0
+      playingAudio.pause(); //停止
+      playingAudio.currentTime = 0; //歸零
     } catch {
-      // ignore
+      // 捕捉並忽略可能發生的 DOMException（例如音訊尚未載入完成時呼叫 pause）
     }
   }
-  playingAudio = null
+  playingAudio = null; //不使用音訊物件(釋放資源)
 }
 
+/**
+ * 切換聆聽播放狀態
+ * 參數:id - 音軌碎片唯一的識別碼
+ */
 function toggleListen(id: string) {
-  if (fragments.getCount(id) < 1) return
+  // 若該碎片尚未收集，則不允許播放
+  if (fragments.getCount(id) < 1) return;
 
+  // 若點擊的是目前正在播放的音軌，則執行停止並結束
   if (playingId.value === id) {
-    stopListening()
-    return
+    stopListening();
+    return;
   }
+  // 切換新音軌前先清理舊的播放
+  stopListening();
 
-  stopListening()
+  // 取得音檔路徑(找不到則終止)
+  const url = getFragmentById(id)?.trackAudioUrl;
+  if (!url) return;
 
-  const url = getFragmentById(id)?.trackAudioUrl
-  if (!url) return
+  // 初始化音訊
+  const audio = new Audio(url);
+  audio.volume = 0.95; // 音量控制
 
-  const audio = new Audio(url)
-  audio.volume = 0.95
+  // 監聽自然結束：當音樂播完時自動呼叫停止
   audio.onended = () => {
-    if (playingAudio === audio) stopListening()
-  }
-  playingAudio = audio
-  playingId.value = id
+    // 確保只在該音軌還是「當前音軌」時執行停止
+    if (playingAudio === audio) stopListening();
+  };
 
+  // 儲存引用以便後續控制
+  playingAudio = audio;
+  playingId.value = id; //將 playingId.value 更新為當前 ID
+
+  // 執行非同步播放，並處理瀏覽器自動播放攔截政策
   void audio.play().catch(() => {
-    stopListening()
-  })
+    stopListening();
+  });
 
+  // 設定強制停止計時器，避免音軌播放超過系統限制的最大時長 (NOTE_MAX_DURATION_MS)
   playingStopHandle = window.setTimeout(() => {
-    if (playingAudio) stopListening()
-  }, NOTE_MAX_DURATION_MS)
+    if (playingAudio) stopListening();
+  }, NOTE_MAX_DURATION_MS);
 }
 
-onUnmounted(() => stopListening())
+onUnmounted(() => stopListening());
 </script>
 
 <template>
-  <section class="card p-5">
+  <section class="px-5 py-2">
     <div class="flex items-start justify-between gap-3">
       <div>
-        <div class="text-sm font-medium" style="color: rgba(79, 93, 93, 0.85)">聲音碎片系統</div>
-        <div class="mt-1 text-lg font-semibold" style="color: var(--text)">收集進度</div>
-        <div class="mt-1 text-sm" style="color: rgba(79, 93, 93, 0.78)">{{ summaryText }}</div>
+        <div class="font-semibold">收集進度：{{ summaryText }}</div>
+        <!-- <div class="mt-1 text-sm" style="color: rgba(79, 93, 93, 0.78)">{{ summaryText }}</div> -->
       </div>
-      <button
-        class="px-3 py-2 rounded-xl text-sm"
-        style="background: rgba(79, 93, 93, 0.06); border: 1px solid rgba(79, 93, 93, 0.18)"
-        @click="fragments.resetAll"
-      >
-        清空
-      </button>
     </div>
 
-    <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-      <div
-        v-for="f in FRAGMENT_TYPES"
-        :key="f.id"
-        class="rounded-2xl p-3"
-        style="background: rgba(255, 255, 255, 0.55); border: 1px solid rgba(79, 93, 93, 0.10)"
-      >
-        <div class="flex items-center justify-between gap-2">
+    <!-- 音軌列表 -->
+    <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div v-for="f in displayFragments" :key="f.id" class="rounded-2xl border border-gray-300 bg-white p-3">
+        <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
-            <span class="inline-block h-3 w-3 rounded-full" :style="{ background: f.color, boxShadow: `0 0 16px ${f.color}55` }" />
+            <div
+              class="inline-block h-3 w-3 rounded-full"
+              :style="{ background: f.color, boxShadow: `0 0 16px ${f.color}55` }"
+            />
             <div>
-              <div class="font-semibold" style="color: var(--text)">{{ fragments.getCount(f.id) >= 1 ? f.label : '未知' }}</div>
-              <div class="text-xs" style="color: rgba(79, 93, 93, 0.7)">碎片 x{{ fragments.getCount(f.id) }}</div>
+              <div class="font-semibold">
+                {{ f.isDiscovered ? f.label : '未知' }}
+              </div>
+              <div class="text-xs text-gray-500">碎片 x{{ f.count }}</div>
             </div>
           </div>
-          <div class="text-right">
-            <div class="text-xs" style="color: rgba(79, 93, 93, 0.75)">進度</div>
-            <div class="text-lg font-semibold" :style="{ color: f.color }">{{ pct(fragments.getCount(f.id)) }}%</div>
-          </div>
+
+          <div class="text-righttext-lg self-end-safe font-semibold" :style="{ color: f.color }">{{ f.progress }}%</div>
         </div>
 
-        <div class="mt-2 h-2 rounded-full" style="background: rgba(79, 93, 93, 0.08); overflow: hidden">
-          <div class="h-full rounded-full" :style="{ width: `${pct(fragments.getCount(f.id))}%`, background: f.color, opacity: 0.8 }" />
+        <div class="bg-background mt-2 h-2 overflow-hidden rounded-full">
+          <div
+            class="h-full rounded-full transition-all duration-500"
+            :style="{ width: `${f.progress}%`, background: f.color }"
+          />
         </div>
 
         <div class="mt-3 flex items-center justify-between gap-2">
-          <div class="text-sm" style="color: rgba(79, 93, 93, 0.78)">
-            <span v-if="fragments.getCount(f.id) >= 4" style="color: var(--green); font-weight: 700">已解鎖音軌</span>
-            <span v-else>集齊 4 個解鎖</span>
-          </div>
+          <p
+            class="text-sm transition-colors duration-300"
+            :class="f.isUnlocked ? 'text-green font-bold' : 'font-medium text-black opacity-60'"
+          >
+            {{ f.isUnlocked ? '已解鎖' : '未解鎖' }}
+          </p>
 
           <button
-            class="px-3 py-2 rounded-xl text-sm"
-            style="background: rgba(172, 215, 255, 0.14); border: 1px solid rgba(172, 215, 255, 0.35)"
-            :disabled="fragments.getCount(f.id) < 4"
+            class="rounded-xl border border-gray-300 bg-gray-200 px-3 py-2 text-sm transition-opacity"
+            :disabled="!f.isUnlocked"
             @click="toggleListen(f.id)"
-            :class="fragments.getCount(f.id) < 4 ? 'opacity-40 cursor-not-allowed' : ''"
+            :class="[!f.isUnlocked ? 'cursor-not-allowed opacity-40' : 'cursor-pointer hover:opacity-80']"
           >
             {{ playingId === f.id ? '終止' : '聆聽' }}
           </button>
         </div>
       </div>
     </div>
-
-    <div v-if="fragments.lastCollected" class="mt-4 text-sm" style="color: rgba(79, 93, 93, 0.85)">
-      最近一次：
-      <span style="font-weight: 700">
-        {{
-          fragments.getCount(fragments.lastCollected.fragmentId) >= 4
-            ? fragments.getFragmentLabel(fragments.lastCollected.fragmentId)
-            : '未知'
-        }}
-      </span>
-      （+1）
-    </div>
   </section>
 </template>
-

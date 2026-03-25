@@ -3,8 +3,6 @@ import { defineStore } from 'pinia';
 import { FOCUS_INTERVAL_MINUTES } from '@/data/audioCatalog';
 import { useFragmentsStore } from '@/stores/fragments';
 import { useAudioEngine } from '@/composables/useAudioEngine';
-import { useBackgroundStore } from '@/stores/background';
-import { useMusicStore } from '@/stores/music';
 
 type TimerMode = 'up' | 'down';
 type TimerStatus = 'idle' | 'running' | 'paused' | 'ended';

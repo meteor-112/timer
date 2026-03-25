@@ -1,459 +1,530 @@
 <script setup lang="ts">
-import { computed, onUnmounted, ref } from 'vue'
-import { FRAGMENT_TYPES, getFragmentById } from '@/data/audioCatalog'
-import { useFragmentsStore } from '@/stores/fragments'
-import { useMusicStore, type MusicRecord, type MusicTrackMix } from '@/stores/music'
+import { computed, onUnmounted, ref } from 'vue';
+import { FRAGMENT_TYPES, getFragmentById } from '@/data/audioCatalog';
+import { useFragmentsStore } from '@/stores/fragments';
+import { useMusicStore, type MusicRecord, type MusicTrackMix } from '@/stores/music';
 
-const fragments = useFragmentsStore()
-const music = useMusicStore()
+const fragments = useFragmentsStore();
+const music = useMusicStore();
 
-const tracks = ref<MusicTrackMix[]>([])
-const recordName = ref('')
-const pinAfterCreate = ref(true)
-const generating = ref(false)
-const previewPlaying = ref(false)
-const playingRecordId = ref<string | null>(null)
+const tracks = ref<MusicTrackMix[]>([]);
+const recordName = ref('');
+const pinAfterCreate = ref(true);
+const generating = ref(false);
+const previewPlaying = ref(false);
+const playingRecordId = ref<string | null>(null);
 
-let previewStopHandle: number | null = null
-const previewStartHandles = new Set<number>()
-let previewAudios: HTMLAudioElement[] = []
-let recordAudioEl: HTMLAudioElement | null = null
+let previewStopHandle: number | null = null;
+const previewStartHandles = new Set<number>();
+let previewAudios: HTMLAudioElement[] = [];
+let recordAudioEl: HTMLAudioElement | null = null;
 
-const maxTracks = 5
+const maxTracks = 5;
 
-const canAddTrack = computed(() => tracks.value.length < maxTracks && fragments.unlockedNoteIds.length > 0)
+const canAddTrack = computed(() => tracks.value.length < maxTracks && fragments.unlockedNoteIds.length > 0);
 
 const canCreate = computed(() => {
-  if (tracks.value.length < 1) return false
-  if (tracks.value.length > maxTracks) return false
-  const unlocked = new Set(fragments.unlockedNoteIds)
-  return tracks.value.every((t) => t.noteId && unlocked.has(t.noteId))
-})
+  if (tracks.value.length < 1) return false;
+  if (tracks.value.length > maxTracks) return false;
+  const unlocked = new Set(fragments.unlockedNoteIds);
+  return tracks.value.every((t) => t.noteId && unlocked.has(t.noteId));
+});
 
 function addTrack() {
-  if (!canAddTrack.value) return
-  const first = fragments.unlockedNoteIds[0] ?? ''
+  if (!canAddTrack.value) return;
+  const first = fragments.unlockedNoteIds[0] ?? '';
   tracks.value.push({
     noteId: first,
     offsetSec: 0,
     volume: 0.8,
-  })
+  });
 }
 
 function removeTrack(idx: number) {
-  tracks.value.splice(idx, 1)
+  tracks.value.splice(idx, 1);
 }
 
 function stopPreview() {
-  previewPlaying.value = false
+  previewPlaying.value = false;
   if (previewStopHandle != null) {
-    window.clearTimeout(previewStopHandle)
-    previewStopHandle = null
+    window.clearTimeout(previewStopHandle);
+    previewStopHandle = null;
   }
-  for (const h of previewStartHandles) window.clearTimeout(h)
-  previewStartHandles.clear()
+  for (const h of previewStartHandles) window.clearTimeout(h);
+  previewStartHandles.clear();
   for (const a of previewAudios) {
     try {
-      a.pause()
-      a.currentTime = 0
+      a.pause();
+      a.currentTime = 0;
     } catch {
       // ignore
     }
   }
-  previewAudios = []
+  previewAudios = [];
 }
 
 function stopRecordPlayback() {
-  playingRecordId.value = null
-  if (!recordAudioEl) return
+  playingRecordId.value = null;
+  if (!recordAudioEl) return;
   try {
-    recordAudioEl.pause()
-    recordAudioEl.currentTime = 0
+    recordAudioEl.pause();
+    recordAudioEl.currentTime = 0;
   } catch {
     // ignore
   }
-  recordAudioEl = null
+  recordAudioEl = null;
 }
 
 async function togglePreview() {
   if (previewPlaying.value) {
-    stopPreview()
-    return
+    stopPreview();
+    return;
   }
 
-  stopPreview()
-  stopRecordPlayback()
-  previewPlaying.value = true
+  stopPreview();
+  stopRecordPlayback();
+  previewPlaying.value = true;
 
   const playable = tracks.value
     .map((t) => ({ ...t, url: getFragmentById(t.noteId)?.trackAudioUrl }))
     .filter((t) => !!t.url)
-    .slice(0, maxTracks)
+    .slice(0, maxTracks);
 
   for (const t of playable) {
-    const delay = Math.max(0, Math.min(30, t.offsetSec)) * 1000
+    const delay = Math.max(0, Math.min(30, t.offsetSec)) * 1000;
     const h = window.setTimeout(() => {
-      if (!previewPlaying.value) return
-      const audio = new Audio(t.url!)
-      audio.volume = Math.max(0, Math.min(1, t.volume))
-      previewAudios.push(audio)
+      if (!previewPlaying.value) return;
+      const audio = new Audio(t.url!);
+      audio.volume = Math.max(0, Math.min(1, t.volume));
+      previewAudios.push(audio);
       void audio.play().catch(() => {
         // ignore
-      })
-    }, delay)
-    previewStartHandles.add(h)
+      });
+    }, delay);
+    previewStartHandles.add(h);
   }
 
   previewStopHandle = window.setTimeout(() => {
-    stopPreview()
-  }, 30_000)
+    stopPreview();
+  }, 30_000);
 }
 
 function colorFor(noteId: string): string {
-  return FRAGMENT_TYPES.find((f) => f.id === noteId)?.color ?? '#acd7ff'
+  return FRAGMENT_TYPES.find((f) => f.id === noteId)?.color ?? '#acd7ff';
 }
 
 async function createRecord() {
-  if (!canCreate.value) return
-  generating.value = true
+  if (!canCreate.value) return;
+  generating.value = true;
   try {
-    stopPreview()
-    const record = music.createRecord([...tracks.value], recordName.value)
-    await music.ensureRecordMp3(record.id)
-    tracks.value = []
-    recordName.value = ''
-    if (pinAfterCreate.value) music.setPinned(record.id)
+    stopPreview();
+    const record = music.createRecord([...tracks.value], recordName.value);
+    await music.ensureRecordMp3(record.id);
+    tracks.value = [];
+    recordName.value = '';
+    if (pinAfterCreate.value) music.setPinned(record.id);
   } finally {
-    generating.value = false
+    generating.value = false;
   }
 }
 
-const shareCode = ref('')
-const importCode = ref('')
+const shareCode = ref('');
+const importCode = ref('');
 
 function startShare(recordId: string) {
-  const code = music.shareRecord(recordId)
-  shareCode.value = code ?? ''
+  const code = music.shareRecord(recordId);
+  shareCode.value = code ?? '';
 }
 
 async function doImport() {
-  const code = importCode.value.trim()
-  if (!code) return
-  const record = music.importShareCode(code)
+  const code = importCode.value.trim();
+  if (!code) return;
+  const record = music.importShareCode(code);
   if (record) {
-    importCode.value = ''
-    generating.value = true
+    importCode.value = '';
+    generating.value = true;
     try {
-      await music.ensureRecordMp3(record.id)
+      await music.ensureRecordMp3(record.id);
     } finally {
-      generating.value = false
+      generating.value = false;
     }
-    music.setPinned(record.id)
+    music.setPinned(record.id);
   }
 }
 
 async function copyShareCode() {
-  const code = shareCode.value.trim()
-  if (!code) return
+  const code = shareCode.value.trim();
+  if (!code) return;
   try {
-    const nav = globalThis.navigator
-    await nav.clipboard?.writeText(code)
+    const nav = globalThis.navigator;
+    await nav.clipboard?.writeText(code);
   } catch {
     // ignore
   }
 }
 
-const editTargetId = ref<string | null>(null)
-const editName = ref('')
+const editTargetId = ref<string | null>(null);
+const editName = ref('');
 
 function beginRename(record: MusicRecord) {
-  editTargetId.value = record.id
-  editName.value = record.name
+  editTargetId.value = record.id;
+  editName.value = record.name;
 }
 
 function saveRename() {
-  if (!editTargetId.value) return
-  music.renameRecord(editTargetId.value, editName.value)
-  editTargetId.value = null
+  if (!editTargetId.value) return;
+  music.renameRecord(editTargetId.value, editName.value);
+  editTargetId.value = null;
 }
 
 function trackCountLabel(r: MusicRecord): number {
-  return r.mix?.length ?? r.noteIds.length
+  return r.mix?.length ?? r.noteIds.length;
 }
 
 async function toggleRecordPlayback(recordId: string) {
   if (playingRecordId.value === recordId) {
-    stopRecordPlayback()
-    return
+    stopRecordPlayback();
+    return;
   }
 
-  stopPreview()
-  stopRecordPlayback()
+  stopPreview();
+  stopRecordPlayback();
 
-  const ok = await music.ensureRecordMp3(recordId).catch(() => false)
-  if (!ok) return
-  const url = await music.getRecordMp3ObjectUrl(recordId)
-  if (!url) return
+  const ok = await music.ensureRecordMp3(recordId).catch(() => false);
+  if (!ok) return;
+  const url = await music.getRecordMp3ObjectUrl(recordId);
+  if (!url) return;
 
-  const audio = new Audio(url)
-  recordAudioEl = audio
-  playingRecordId.value = recordId
+  const audio = new Audio(url);
+  recordAudioEl = audio;
+  playingRecordId.value = recordId;
   audio.onended = () => {
     if (recordAudioEl === audio) {
-      stopRecordPlayback()
+      stopRecordPlayback();
     }
-  }
+  };
   void audio.play().catch(() => {
-    stopRecordPlayback()
-  })
+    stopRecordPlayback();
+  });
 }
 
 onUnmounted(() => {
-  stopPreview()
-  stopRecordPlayback()
-})
+  stopPreview();
+  stopRecordPlayback();
+});
 </script>
 
 <template>
-  <section class="card p-5">
-    <div class="flex items-start justify-between gap-3">
-      <div>
-        <div class="text-sm font-medium" style="color: rgba(79, 93, 93, 0.85)">音樂系統</div>
-        <div class="mt-1 text-lg font-semibold" style="color: var(--text)">30 秒唱片製作（Tone.js）</div>
-        <div class="mt-1 text-sm" style="color: rgba(79, 93, 93, 0.78)">
-          最多選擇 5 條已解鎖音軌，可調整每條在時間軸上的位置與音量，合成 30 秒 MP3。
+  <section class="space-y-8 px-5 py-6">
+    <header class="relative overflow-hidden rounded-[32px] border border-stone-200 bg-stone-100 p-6">
+      <div class="relative z-10 flex flex-col justify-between gap-4 md:flex-row md:items-center">
+        <div>
+          <h3 class="flex items-center gap-2 text-lg font-bold text-stone-800">
+            <span class="text-xl">⚒️</span> 音樂合成工坊
+          </h3>
+          <p class="mt-1 text-sm leading-relaxed text-stone-500">
+            挑選最多 5 項碎片，揉合時間與音量，<br />
+            煉製專屬的 30 秒靜心旋律。
+          </p>
+        </div>
+        <div
+          class="flex items-center gap-3 self-start rounded-2xl border border-white bg-white/80 px-4 py-2.5 shadow-sm backdrop-blur-sm md:self-center"
+        >
+          <div class="relative flex h-3 w-3">
+            <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-400 opacity-75"></span>
+            <span class="relative inline-flex h-3 w-3 rounded-full bg-sky-500"></span>
+          </div>
+          <span class="text-sm font-semibold text-stone-700">可用材料：{{ fragments.unlockedNoteIds.length }}</span>
         </div>
       </div>
-      <div class="accent-pill text-sm" style="color: var(--text)">
-        <span
-          class="inline-block h-2 w-2 rounded-full"
-          style="background: var(--blue); box-shadow: 0 0 14px rgba(172, 215, 255, 0.65)"
-        />
-        <span>已解鎖音軌：{{ fragments.unlockedNoteIds.length }}</span>
+      <div class="pointer-events-none absolute -right-4 -bottom-4 opacity-5 select-none">
+        <svg width="120" height="120" viewBox="0 0 24 24">
+          <path
+            fill="currentColor"
+            d="M12 3v10.55c-.59-.34-1.27-.55-2-.55c-2.21 0-4 1.79-4 4s1.79 4 4 4s4-1.79 4-4V7h4V3h-6Z"
+          />
+        </svg>
       </div>
-    </div>
+    </header>
 
-    <div class="mt-4">
-      <div class="flex items-center justify-between gap-2 flex-wrap">
-        <div class="text-sm font-medium" style="color: rgba(79, 93, 93, 0.85)">混音軌（最多 {{ maxTracks }} 條）</div>
+    <div class="space-y-4">
+      <div class="flex items-center justify-between px-1">
+        <div class="flex items-center gap-2">
+          <span class="h-1.5 w-6 rounded-full bg-stone-300"></span>
+          <h4 class="text-sm font-bold tracking-widest text-stone-400 uppercase">實時調音台</h4>
+        </div>
         <div class="flex items-center gap-2">
           <button
             v-if="tracks.length > 0"
-            type="button"
-            class="px-3 py-2 rounded-xl text-sm"
-            style="background: rgba(156, 175, 170, 0.16); border: 1px solid rgba(156, 175, 170, 0.35)"
             @click="togglePreview"
+            class="group flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-2 text-sm font-bold text-stone-600 transition-all hover:border-stone-400 active:scale-95"
           >
-            {{ previewPlaying ? '終止試聽' : '試聽' }}
+            <span :class="previewPlaying ? 'text-red-500' : 'text-stone-400'">{{ previewPlaying ? '■' : '▶' }}</span>
+            {{ previewPlaying ? '停止試聽' : '試聽混音' }}
           </button>
           <button
-            type="button"
-            class="px-3 py-2 rounded-xl text-sm disabled:opacity-40"
-            style="background: rgba(172, 215, 255, 0.14); border: 1px solid rgba(172, 215, 255, 0.35)"
             :disabled="!canAddTrack"
             @click="addTrack"
+            class="flex items-center gap-2 rounded-xl bg-stone-800 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-stone-200 transition-all hover:bg-black active:scale-95 disabled:opacity-30 disabled:grayscale"
           >
-            加入音軌
+            <span>+</span> 加入音軌
           </button>
         </div>
       </div>
 
-      <div v-if="tracks.length === 0" class="mt-3 text-sm" style="color: rgba(79, 93, 93, 0.7)">
-        點「加入音軌」開始編排。需先解鎖音軌。
+      <div
+        v-if="tracks.length === 0"
+        class="flex flex-col items-center justify-center rounded-[32px] border-2 border-dashed border-stone-200 bg-stone-50/50 py-12"
+      >
+        <div class="mb-3 text-3xl opacity-20">🎚️</div>
+        <p class="text-sm text-stone-400">調音台上空無一物，請加入音軌開始創作</p>
       </div>
 
-      <div class="mt-3 flex flex-col gap-3">
+      <transition-group name="list" tag="div" class="grid gap-4">
         <div
           v-for="(t, idx) in tracks"
           :key="idx"
-          class="rounded-2xl p-3"
-          style="background: rgba(255, 255, 255, 0.55); border: 1px solid rgba(79, 93, 93, 0.1)"
+          class="group relative rounded-[28px] border border-stone-100 bg-white p-5 shadow-sm transition-all hover:border-stone-200 hover:shadow-md"
         >
-          <div class="flex items-center justify-between gap-2 mb-2">
-            <div class="text-sm font-semibold" style="color: var(--text)">音軌 {{ idx + 1 }}</div>
+          <div class="mb-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <span
+                class="flex h-6 w-6 items-center justify-center rounded-full bg-stone-100 text-[10px] font-bold text-stone-500"
+                >{{ idx + 1 }}</span
+              >
+              <span class="text-sm font-bold text-stone-700">聲部配置</span>
+            </div>
             <button
-              type="button"
-              class="px-2 py-1 rounded-lg text-xs"
-              style="background: rgba(79, 93, 93, 0.06); border: 1px solid rgba(79, 93, 93, 0.18)"
               @click="removeTrack(idx)"
+              class="p-2 text-xs font-medium text-stone-400 opacity-0 transition-all group-hover:opacity-100 hover:text-red-400"
             >
-              移除
+              移除音軌
             </button>
           </div>
 
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <label class="block text-xs" style="color: rgba(79, 93, 93, 0.85)">
-              音軌
+          <div class="grid grid-cols-1 gap-6 md:grid-cols-3">
+            <div class="space-y-2">
+              <label class="text-[10px] font-bold text-stone-400 uppercase">聲音來源</label>
               <select
                 v-model="t.noteId"
-                class="mt-1 w-full rounded-xl border border-black/10 bg-white/70 px-2 py-2 text-sm"
+                class="w-full appearance-none rounded-xl border-none bg-stone-50 px-4 py-2.5 text-sm font-medium text-stone-700 focus:ring-2 focus:ring-stone-200"
               >
                 <option v-for="id in fragments.unlockedNoteIds" :key="id" :value="id">
                   {{ fragments.getFragmentLabel(id) }}
                 </option>
               </select>
-            </label>
+            </div>
 
-            <label class="block text-xs" style="color: rgba(79, 93, 93, 0.85)">
-              位置 {{ Number(t.offsetSec).toFixed(1) }} 秒（0–30）
-              <input v-model.number="t.offsetSec" type="range" min="0" max="30" step="0.1" class="mt-2 w-full" />
-            </label>
+            <div class="space-y-2">
+              <div class="flex justify-between">
+                <label class="text-[10px] font-bold text-stone-400 uppercase">出現時間</label>
+                <span class="font-mono text-[10px] font-bold text-stone-600">{{ t.offsetSec.toFixed(1) }}s</span>
+              </div>
+              <input
+                v-model.number="t.offsetSec"
+                type="range"
+                min="0"
+                max="30"
+                step="0.1"
+                class="w-full accent-stone-700"
+              />
+            </div>
 
-            <label class="block text-xs" style="color: rgba(79, 93, 93, 0.85)">
-              音量 {{ Math.round(t.volume * 100) }}%
-              <input v-model.number="t.volume" type="range" min="0" max="1" step="0.01" class="mt-2 w-full" />
-            </label>
+            <div class="space-y-2">
+              <div class="flex justify-between">
+                <label class="text-[10px] font-bold text-stone-400 uppercase">增益量</label>
+                <span class="font-mono text-[10px] font-bold text-stone-600">{{ Math.round(t.volume * 100) }}%</span>
+              </div>
+              <input
+                v-model.number="t.volume"
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                class="w-full accent-stone-700"
+              />
+            </div>
           </div>
 
-          <div
-            class="mt-2 h-1 rounded-full"
-            :style="{
-              background: `linear-gradient(90deg, ${colorFor(t.noteId)}55, rgba(255,255,255,0))`,
-            }"
-          />
+          <div class="mt-4 h-1 w-full overflow-hidden rounded-full bg-stone-50">
+            <div
+              class="h-full rounded-full opacity-60 transition-all duration-500"
+              :style="{ width: `${(t.offsetSec / 30) * 100}%`, background: colorFor(t.noteId) }"
+            ></div>
+          </div>
+        </div>
+      </transition-group>
+    </div>
+
+    <footer class="relative overflow-hidden rounded-[32px] border border-stone-300 bg-stone-200/50 p-8 shadow-inner">
+      <div class="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/40 to-transparent"></div>
+
+      <div class="relative z-10 grid grid-cols-1 items-end gap-8 lg:grid-cols-2">
+        <div class="space-y-5">
+          <div class="space-y-2">
+            <label class="ml-1 text-xs font-bold tracking-widest text-stone-500 uppercase">唱片標題</label>
+            <input
+              v-model="recordName"
+              type="text"
+              placeholder="例如：午後的禪意..."
+              class="w-full rounded-2xl border-stone-300 bg-white px-4 py-3 text-stone-800 shadow-sm transition-all placeholder:text-stone-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+            />
+          </div>
+
+          <label class="group flex w-fit cursor-pointer items-center gap-3">
+            <div
+              class="relative flex h-6 w-6 items-center justify-center rounded-lg border-2 border-stone-400 bg-white transition-colors group-hover:border-emerald-500"
+            >
+              <input type="checkbox" v-model="pinAfterCreate" class="absolute cursor-pointer opacity-0" />
+              <div v-show="pinAfterCreate" class="h-3 w-3 rounded-sm bg-emerald-500"></div>
+            </div>
+            <span class="text-sm font-medium text-stone-600">製作完成後自動置頂</span>
+          </label>
+        </div>
+
+        <div class="flex flex-col items-end gap-4">
+          <div class="rounded-xl border border-white/50 bg-white/60 px-4 py-2 shadow-sm backdrop-blur-md">
+            <p class="text-[11px] leading-tight text-stone-500">
+              <span class="font-bold text-emerald-600">準備就緒：</span>將合成 30 秒高品質音軌
+            </p>
+          </div>
+          <button
+            :disabled="!canCreate || generating"
+            @click="createRecord"
+            class="w-full rounded-2xl px-10 py-4 text-base font-black shadow-xl transition-all active:scale-95 disabled:opacity-50 disabled:grayscale lg:w-auto"
+            :class="
+              generating
+                ? 'cursor-wait bg-stone-300 text-stone-500'
+                : 'bg-emerald-600 text-white shadow-emerald-200 hover:bg-emerald-500 hover:shadow-emerald-300'
+            "
+          >
+            {{ generating ? '⚡ 正在煉製中...' : '🛠️ 製作並儲存唱片' }}
+          </button>
         </div>
       </div>
-    </div>
+    </footer>
 
-    <div class="mt-4 flex items-end justify-between gap-3 flex-wrap">
-      <div>
-        <label class="text-sm" style="color: rgba(79, 93, 93, 0.85)">唱片名稱</label>
-        <input
-          v-model="recordName"
-          type="text"
-          class="mt-1 w-80 max-w-full rounded-xl border border-black/10 bg-white/60 px-3 py-2 text-sm"
-          placeholder="例如：綠色靜心 - 30 秒"
-        />
+    <hr class="border-stone-100" />
+
+    <div class="space-y-6">
+      <div class="flex items-center gap-2">
+        <span class="text-xl">📻</span>
+        <h4 class="text-base font-bold text-stone-800">工坊收藏夾</h4>
       </div>
 
-      <label class="text-sm flex items-center gap-2" style="color: rgba(79, 93, 93, 0.85)">
-        <input type="checkbox" v-model="pinAfterCreate" />
-        製作後自動置頂
-      </label>
-
-      <button
-        class="px-4 py-2 rounded-xl disabled:opacity-40"
-        style="background: rgba(151, 206, 80, 0.22); border: 1px solid rgba(151, 206, 80, 0.55)"
-        :disabled="!canCreate || generating"
-        @click="createRecord"
-      >
-        {{ generating ? '正在輸出 mp3...' : '製作並儲存唱片' }}
-      </button>
-    </div>
-
-    <div class="mt-4">
-      <div class="text-sm font-medium" style="color: rgba(79, 93, 93, 0.85)">你的唱片（可命名、分享、置頂）</div>
-      <div class="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div
           v-for="r in music.musicRecords"
           :key="r.id"
-          class="rounded-2xl p-3"
-          style="background: rgba(255, 255, 255, 0.55); border: 1px solid rgba(79, 93, 93, 0.1)"
+          class="group relative rounded-[28px] border border-stone-100 bg-white p-5 transition-all hover:-translate-y-1 hover:shadow-xl"
         >
           <div class="flex items-start justify-between gap-3">
-            <div class="min-w-0">
-              <div class="font-semibold" style="color: var(--text)">{{ r.name }}</div>
-              <div class="text-xs" style="color: rgba(79, 93, 93, 0.7)">
-                音軌數：{{ trackCountLabel(r) }} · {{ new Date(r.createdAt).toLocaleString() }}
-              </div>
-              <div v-if="music.pinnedId === r.id" class="text-xs mt-1" style="color: var(--green); font-weight: 700">
-                已置頂
-              </div>
-            </div>
-            <div class="flex gap-2">
-              <button
-                class="px-3 py-2 rounded-xl text-sm"
-                style="background: rgba(172, 215, 255, 0.14); border: 1px solid rgba(172, 215, 255, 0.35)"
-                @click="toggleRecordPlayback(r.id)"
+            <div class="space-y-1">
+              <h5 class="font-bold text-stone-800 transition-colors group-hover:text-stone-900">{{ r.name }}</h5>
+              <p class="flex items-center gap-2 text-[10px] font-medium text-stone-400">
+                <span>{{ trackCountLabel(r) }} 音軌</span>
+                <span class="h-1 w-1 rounded-full bg-stone-200"></span>
+                <span>{{ new Date(r.createdAt).toLocaleDateString() }}</span>
+              </p>
+              <div
+                v-if="music.pinnedId === r.id"
+                class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-600"
               >
-                {{ playingRecordId === r.id ? '終止' : '播放' }}
-              </button>
+                <span class="h-1 w-1 rounded-full bg-emerald-500"></span> 已置頂
+              </div>
             </div>
+            <button
+              @click="toggleRecordPlayback(r.id)"
+              class="flex h-12 w-12 items-center justify-center rounded-2xl bg-stone-100 text-stone-700 shadow-sm transition-all hover:bg-stone-200 active:scale-90"
+            >
+              <span class="text-lg">{{ playingRecordId === r.id ? '■' : '▶' }}</span>
+            </button>
           </div>
 
-          <div class="mt-3 flex flex-wrap gap-2">
+          <div class="mt-6 flex flex-wrap gap-2 border-t border-stone-50 pt-4">
             <button
-              class="px-3 py-2 rounded-xl text-sm"
-              style="background: rgba(156, 175, 170, 0.14); border: 1px solid rgba(156, 175, 170, 0.35)"
               @click="music.setPinned(music.pinnedId === r.id ? null : r.id)"
+              class="rounded-lg bg-stone-50 px-3 py-1.5 text-[11px] font-bold text-stone-500 transition-all hover:bg-stone-800 hover:text-white"
             >
               {{ music.pinnedId === r.id ? '取消置頂' : '置頂' }}
             </button>
             <button
-              class="px-3 py-2 rounded-xl text-sm"
-              style="background: rgba(79, 93, 93, 0.06); border: 1px solid rgba(79, 93, 93, 0.18)"
               @click="beginRename(r)"
+              class="rounded-lg bg-stone-50 px-3 py-1.5 text-[11px] font-bold text-stone-500 transition-all hover:bg-stone-200"
             >
               改名
             </button>
             <button
-              class="px-3 py-2 rounded-xl text-sm"
-              style="background: rgba(172, 215, 255, 0.08); border: 1px solid rgba(172, 215, 255, 0.25)"
               @click="startShare(r.id)"
+              class="rounded-lg bg-stone-50 px-3 py-1.5 text-[11px] font-bold text-stone-500 transition-all hover:bg-stone-200"
             >
               分享
             </button>
             <button
-              class="px-3 py-2 rounded-xl text-sm"
-              style="background: rgba(79, 93, 93, 0.06); border: 1px solid rgba(79, 93, 93, 0.18)"
               @click="music.removeRecord(r.id)"
+              class="ml-auto rounded-lg bg-stone-50 px-3 py-1.5 text-[11px] font-bold text-red-400 transition-all hover:bg-red-50"
             >
               刪除
             </button>
           </div>
 
-          <div v-if="editTargetId === r.id" class="mt-3">
+          <div
+            v-if="editTargetId === r.id"
+            class="animate-in fade-in slide-in-from-top-2 mt-4 rounded-2xl bg-stone-50 p-3"
+          >
             <input
               v-model="editName"
               type="text"
-              class="w-full rounded-xl border border-black/10 bg-white/70 px-3 py-2 text-sm"
+              class="w-full rounded-xl border-stone-200 bg-white px-3 py-2 text-xs focus:ring-stone-400"
             />
             <div class="mt-2 flex gap-2">
               <button
-                class="px-3 py-2 rounded-xl text-sm"
-                style="background: rgba(151, 206, 80, 0.22); border: 1px solid rgba(151, 206, 80, 0.55)"
                 @click="saveRename"
+                class="flex-1 rounded-lg bg-emerald-500 px-3 py-2 text-[10px] font-bold text-white"
               >
-                儲存改名
+                確認儲存
               </button>
               <button
-                class="px-3 py-2 rounded-xl text-sm"
-                style="background: rgba(79, 93, 93, 0.06); border: 1px solid rgba(79, 93, 93, 0.18)"
                 @click="editTargetId = null"
+                class="flex-1 rounded-lg bg-stone-200 px-3 py-2 text-[10px] font-bold text-stone-600"
               >
                 取消
               </button>
             </div>
           </div>
         </div>
-
-        <div v-if="music.musicRecords.length === 0" class="mt-3 text-sm" style="color: rgba(79, 93, 93, 0.7)">
-          編排音軌後按下製作，會輸出 30 秒 MP3。
-        </div>
       </div>
     </div>
 
-    <div class="mt-5">
-      <div class="text-sm font-medium" style="color: rgba(79, 93, 93, 0.85)">分享 / 匯入</div>
-      <div class="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>
-          <div class="text-xs" style="color: rgba(79, 93, 93, 0.75)">目前分享碼（按下某張唱片的「分享」會自動填入）</div>
+    <hr class="border-stone-200" />
+
+    <div class="mt-12 space-y-6 rounded-[32px] border border-stone-200 bg-stone-100/80 p-6">
+      <div class="flex items-center gap-2 px-1">
+        <span class="text-xl">✉️</span>
+        <h4 class="text-base font-bold text-stone-800">工坊通訊</h4>
+      </div>
+
+      <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+        <div class="space-y-3">
+          <div class="flex items-center justify-between">
+            <label class="text-xs font-bold text-stone-500 uppercase">分享碼</label>
+            <span class="text-[10px] text-stone-400">點擊唱片「分享」自動填入</span>
+          </div>
           <textarea
             v-model="shareCode"
-            class="mt-1 w-full min-h-28 rounded-xl border border-black/10 bg-white/60 px-3 py-2 text-sm"
+            placeholder="尚未選取分享內容"
+            class="min-h-28 w-full rounded-2xl border-stone-200 bg-white/80 px-4 py-3 text-sm text-stone-600 focus:ring-stone-200"
           />
-          <div class="mt-2 flex gap-2">
+          <div class="flex gap-2">
             <button
-              class="px-3 py-2 rounded-xl text-sm"
-              style="background: rgba(172, 215, 255, 0.14); border: 1px solid rgba(172, 215, 255, 0.35)"
+              class="flex-1 rounded-xl bg-sky-100 px-4 py-2.5 text-xs font-bold text-sky-700 transition-colors hover:bg-sky-200 disabled:opacity-40"
               :disabled="!shareCode.trim()"
               @click="copyShareCode"
             >
               複製分享碼
             </button>
             <button
-              class="px-3 py-2 rounded-xl text-sm"
-              style="background: rgba(79, 93, 93, 0.06); border: 1px solid rgba(79, 93, 93, 0.18)"
+              class="rounded-xl bg-stone-200 px-4 py-2.5 text-xs font-bold text-stone-600 transition-colors hover:bg-stone-300"
               @click="shareCode = ''"
             >
               清空
@@ -461,25 +532,23 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <div>
-          <div class="text-xs" style="color: rgba(79, 93, 93, 0.75)">匯入分享碼（會產生新唱片並自動置頂）</div>
+        <div class="space-y-3">
+          <label class="text-xs font-bold text-stone-500 uppercase">匯入唱片</label>
           <textarea
             v-model="importCode"
-            class="mt-1 w-full min-h-28 rounded-xl border border-black/10 bg-white/60 px-3 py-2 text-sm"
-            placeholder="貼上分享碼後按下匯入"
+            placeholder="在此貼上好友的分享碼..."
+            class="min-h-28 w-full rounded-2xl border-stone-200 bg-white/80 px-4 py-3 text-sm text-stone-600 focus:ring-stone-200"
           />
-          <div class="mt-2 flex gap-2">
+          <div class="flex gap-2">
             <button
-              class="px-3 py-2 rounded-xl text-sm"
-              style="background: rgba(151, 206, 80, 0.22); border: 1px solid rgba(151, 206, 80, 0.55)"
+              class="flex-1 rounded-xl bg-emerald-100 px-4 py-2.5 text-xs font-bold text-emerald-700 transition-colors hover:bg-emerald-200 disabled:opacity-40"
               :disabled="!importCode.trim()"
               @click="doImport"
             >
-              匯入並置頂
+              匯入並自動置頂
             </button>
             <button
-              class="px-3 py-2 rounded-xl text-sm"
-              style="background: rgba(79, 93, 93, 0.06); border: 1px solid rgba(79, 93, 93, 0.18)"
+              class="rounded-xl bg-stone-200 px-4 py-2.5 text-xs font-bold text-stone-600 transition-colors hover:bg-stone-300"
               @click="importCode = ''"
             >
               清空
@@ -490,3 +559,34 @@ onUnmounted(() => {
     </div>
   </section>
 </template>
+
+<style scoped>
+/* 列表過渡動畫 */
+.list-enter-active,
+.list-leave-active {
+  transition: all 0.4s ease;
+}
+.list-enter-from,
+.list-leave-to {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+/* 滑桿美化 */
+input[type='range'] {
+  height: 4px;
+  -webkit-appearance: none;
+  background: #e7e5e4;
+  border-radius: 999px;
+}
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  height: 16px;
+  width: 16px;
+  border-radius: 50%;
+  background: #44403c;
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+</style>

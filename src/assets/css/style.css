@@ -8,6 +8,14 @@
   --blue: #acd7ff;
 }
 
+@theme {
+  --color-background: #f0f2f2;
+  --color-theme: #9cafaa;
+  --color-text: #4f5d5d;
+  --color-green: #97ce50;
+  --color-blue: #acd7ff;
+}
+
 html,
 body {
   height: 100%;
@@ -23,8 +31,12 @@ body {
   box-sizing: border-box;
 }
 
-button {
-  cursor: pointer;
+h1{
+  font-size: 28px;
+}
+h2 {
+  font-size: 24px;
+  font-weight: 600;
 }
 
 .app-shell {
@@ -34,7 +46,7 @@ button {
 }
 
 .card {
-  background: rgba(255, 255, 255, 0.72);
+  background: #f1f1f1fa;
   border: 1px solid rgba(79, 93, 93, 0.12);
   border-radius: 18px;
   box-shadow: 0 10px 30px rgba(79, 93, 93, 0.06);
