@@ -27,6 +27,7 @@ onMounted(() => {
 onUnmounted(() => {
   world.stopSimulation()
   if (nowHandle != null) window.clearInterval(nowHandle)
+  stopPinnedPlayback()
 })
 
 function formatFocusMs(ms: number): string {
@@ -80,13 +81,68 @@ const focusUsers = computed(() => {
   return list
 })
 
-async function playPinnedForUser(u: WorldUser & { pinnedRecordId?: string | null } | { pinnedNoteIds: string[]; pinnedRecordId?: string | null }) {
-  const pinnedRecordId = (u as { pinnedRecordId?: string | null }).pinnedRecordId
-  if (pinnedRecordId) {
-    await music.playRecord(pinnedRecordId)
+const playingUserId = ref<string | null>(null)
+let playbackAudioEl: HTMLAudioElement | null = null
+
+function stopPinnedPlayback() {
+  playingUserId.value = null
+  if (!playbackAudioEl) return
+  try {
+    playbackAudioEl.pause()
+    playbackAudioEl.currentTime = 0
+  } catch {
+    // ignore
+  }
+  playbackAudioEl = null
+}
+
+async function togglePinnedForUser(
+  u: WorldUser & { pinnedRecordId?: string | null } | { id: string; pinnedNoteIds: string[]; pinnedRecordId?: string | null },
+) {
+  if (playingUserId.value === u.id) {
+    stopPinnedPlayback()
     return
   }
-  await audio.playRecordByNoteIds(u.pinnedNoteIds)
+
+  stopPinnedPlayback()
+
+  const pinnedRecordId = (u as { pinnedRecordId?: string | null }).pinnedRecordId
+  if (pinnedRecordId) {
+    const ok = await music.ensureRecordMp3(pinnedRecordId).catch(() => false)
+    if (ok) {
+      const url = await music.getRecordMp3ObjectUrl(pinnedRecordId)
+      if (url) {
+        const el = new Audio(url)
+        playbackAudioEl = el
+        playingUserId.value = u.id
+        el.onended = () => {
+          if (playbackAudioEl === el) stopPinnedPlayback()
+        }
+        void el.play().catch(() => stopPinnedPlayback())
+        return
+      }
+    }
+  }
+
+  const fallbackId = u.pinnedNoteIds[0]
+  const fallbackUrl = fallbackId ? getFragmentById(fallbackId)?.trackAudioUrl : null
+  if (fallbackUrl) {
+    const el = new Audio(fallbackUrl)
+    playbackAudioEl = el
+    playingUserId.value = u.id
+    el.onended = () => {
+      if (playbackAudioEl === el) stopPinnedPlayback()
+    }
+    void el.play().catch(() => stopPinnedPlayback())
+    return
+  }
+
+  // 最後退路：若無可用 mp3，仍保留舊合成播放（此分支無法精準停止）
+  playingUserId.value = u.id
+  await audio.playRecordByNoteIds(u.pinnedNoteIds).catch(() => {
+    // ignore
+  })
+  playingUserId.value = null
 }
 </script>
 
@@ -146,10 +202,12 @@ async function playPinnedForUser(u: WorldUser & { pinnedRecordId?: string | null
                 border: `1px solid ${colorForNoteId(u.pinnedPrimaryId)}55`,
                 boxShadow: `0 0 20px ${colorForNoteId(u.pinnedPrimaryId)}22`,
               }"
-              title="點擊播放置頂音樂"
-              @click="playPinnedForUser(u)"
+              title="播放或終止置頂音樂"
+              @click="togglePinnedForUser(u)"
             >
-              <span style="font-size: 16px; font-weight: 800; color: rgba(79, 93, 93, 0.9)">♪</span>
+              <span style="font-size: 12px; font-weight: 800; color: rgba(79, 93, 93, 0.9)">
+                {{ playingUserId === u.id ? '■' : '▶' }}
+              </span>
             </button>
           </div>
 

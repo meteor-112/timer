@@ -1,36 +1,126 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { FRAGMENT_TYPES } from '@/data/audioCatalog'
+import { computed, onUnmounted, ref } from 'vue'
+import { FRAGMENT_TYPES, getFragmentById } from '@/data/audioCatalog'
 import { useFragmentsStore } from '@/stores/fragments'
-import { useMusicStore, type MusicRecord } from '@/stores/music'
+import { useMusicStore, type MusicRecord, type MusicTrackMix } from '@/stores/music'
 
 const fragments = useFragmentsStore()
 const music = useMusicStore()
 
-const selectedNoteIds = ref<string[]>([])
+const tracks = ref<MusicTrackMix[]>([])
 const recordName = ref('')
 const pinAfterCreate = ref(true)
 const generating = ref(false)
+const previewPlaying = ref(false)
+const playingRecordId = ref<string | null>(null)
 
-const canCreate = computed(() => selectedNoteIds.value.length >= 1)
+let previewStopHandle: number | null = null
+const previewStartHandles = new Set<number>()
+let previewAudios: HTMLAudioElement[] = []
+let recordAudioEl: HTMLAudioElement | null = null
 
-function isSelected(id: string) {
-  return selectedNoteIds.value.includes(id)
+const maxTracks = 5
+
+const canAddTrack = computed(() => tracks.value.length < maxTracks && fragments.unlockedNoteIds.length > 0)
+
+const canCreate = computed(() => {
+  if (tracks.value.length < 1) return false
+  if (tracks.value.length > maxTracks) return false
+  const unlocked = new Set(fragments.unlockedNoteIds)
+  return tracks.value.every((t) => t.noteId && unlocked.has(t.noteId))
+})
+
+function addTrack() {
+  if (!canAddTrack.value) return
+  const first = fragments.unlockedNoteIds[0] ?? ''
+  tracks.value.push({
+    noteId: first,
+    offsetSec: 0,
+    volume: 0.8,
+  })
 }
 
-function toggleSelected(id: string) {
-  const idx = selectedNoteIds.value.indexOf(id)
-  if (idx >= 0) selectedNoteIds.value.splice(idx, 1)
-  else selectedNoteIds.value.push(id)
+function removeTrack(idx: number) {
+  tracks.value.splice(idx, 1)
+}
+
+function stopPreview() {
+  previewPlaying.value = false
+  if (previewStopHandle != null) {
+    window.clearTimeout(previewStopHandle)
+    previewStopHandle = null
+  }
+  for (const h of previewStartHandles) window.clearTimeout(h)
+  previewStartHandles.clear()
+  for (const a of previewAudios) {
+    try {
+      a.pause()
+      a.currentTime = 0
+    } catch {
+      // ignore
+    }
+  }
+  previewAudios = []
+}
+
+function stopRecordPlayback() {
+  playingRecordId.value = null
+  if (!recordAudioEl) return
+  try {
+    recordAudioEl.pause()
+    recordAudioEl.currentTime = 0
+  } catch {
+    // ignore
+  }
+  recordAudioEl = null
+}
+
+async function togglePreview() {
+  if (previewPlaying.value) {
+    stopPreview()
+    return
+  }
+
+  stopPreview()
+  stopRecordPlayback()
+  previewPlaying.value = true
+
+  const playable = tracks.value
+    .map((t) => ({ ...t, url: getFragmentById(t.noteId)?.trackAudioUrl }))
+    .filter((t) => !!t.url)
+    .slice(0, maxTracks)
+
+  for (const t of playable) {
+    const delay = Math.max(0, Math.min(30, t.offsetSec)) * 1000
+    const h = window.setTimeout(() => {
+      if (!previewPlaying.value) return
+      const audio = new Audio(t.url!)
+      audio.volume = Math.max(0, Math.min(1, t.volume))
+      previewAudios.push(audio)
+      void audio.play().catch(() => {
+        // ignore
+      })
+    }, delay)
+    previewStartHandles.add(h)
+  }
+
+  previewStopHandle = window.setTimeout(() => {
+    stopPreview()
+  }, 30_000)
+}
+
+function colorFor(noteId: string): string {
+  return FRAGMENT_TYPES.find((f) => f.id === noteId)?.color ?? '#acd7ff'
 }
 
 async function createRecord() {
   if (!canCreate.value) return
   generating.value = true
   try {
-    const record = music.createRecord(selectedNoteIds.value, recordName.value)
-    await music.ensureRecordMp3(record.id) // 製作完成後輸出 mp3
-    selectedNoteIds.value = []
+    stopPreview()
+    const record = music.createRecord([...tracks.value], recordName.value)
+    await music.ensureRecordMp3(record.id)
+    tracks.value = []
     recordName.value = ''
     if (pinAfterCreate.value) music.setPinned(record.id)
   } finally {
@@ -86,6 +176,42 @@ function saveRename() {
   music.renameRecord(editTargetId.value, editName.value)
   editTargetId.value = null
 }
+
+function trackCountLabel(r: MusicRecord): number {
+  return r.mix?.length ?? r.noteIds.length
+}
+
+async function toggleRecordPlayback(recordId: string) {
+  if (playingRecordId.value === recordId) {
+    stopRecordPlayback()
+    return
+  }
+
+  stopPreview()
+  stopRecordPlayback()
+
+  const ok = await music.ensureRecordMp3(recordId).catch(() => false)
+  if (!ok) return
+  const url = await music.getRecordMp3ObjectUrl(recordId)
+  if (!url) return
+
+  const audio = new Audio(url)
+  recordAudioEl = audio
+  playingRecordId.value = recordId
+  audio.onended = () => {
+    if (recordAudioEl === audio) {
+      stopRecordPlayback()
+    }
+  }
+  void audio.play().catch(() => {
+    stopRecordPlayback()
+  })
+}
+
+onUnmounted(() => {
+  stopPreview()
+  stopRecordPlayback()
+})
 </script>
 
 <template>
@@ -93,34 +219,98 @@ function saveRename() {
     <div class="flex items-start justify-between gap-3">
       <div>
         <div class="text-sm font-medium" style="color: rgba(79, 93, 93, 0.85)">音樂系統</div>
-        <div class="mt-1 text-lg font-semibold" style="color: var(--text)">30 秒唱片製作</div>
+        <div class="mt-1 text-lg font-semibold" style="color: var(--text)">30 秒唱片製作（Tone.js）</div>
         <div class="mt-1 text-sm" style="color: rgba(79, 93, 93, 0.78)">
-          只用「已解鎖的音軌（音符）」來組合。製作完成後會輸出並儲存唱片 mp3。
+          最多選擇 5 條已解鎖音軌，可調整每條在時間軸上的位置與音量，合成 30 秒 MP3。
         </div>
       </div>
       <div class="accent-pill text-sm" style="color: var(--text)">
-        <span class="inline-block h-2 w-2 rounded-full" style="background: var(--blue); box-shadow: 0 0 14px rgba(172, 215, 255, 0.65)" />
+        <span
+          class="inline-block h-2 w-2 rounded-full"
+          style="background: var(--blue); box-shadow: 0 0 14px rgba(172, 215, 255, 0.65)"
+        />
         <span>已解鎖音軌：{{ fragments.unlockedNoteIds.length }}</span>
       </div>
     </div>
 
     <div class="mt-4">
-      <div class="text-sm font-medium" style="color: rgba(79, 93, 93, 0.85)">選擇要放進唱片的音符</div>
-      <div class="mt-2 flex flex-wrap gap-2">
-        <button
-          v-for="n in fragments.unlockedNoteIds"
-          :key="n"
-          class="px-3 py-2 rounded-xl text-sm"
-          :style="{
-            border: isSelected(n) ? `1px solid ${FRAGMENT_TYPES.find((f) => f.id === n)?.color ?? '#acd7ff'}55` : '1px solid rgba(79, 93, 93, 0.12)',
-            background: isSelected(n) ? 'rgba(172, 215, 255, 0.18)' : 'rgba(255, 255, 255, 0.55)',
-          }"
-          @click="toggleSelected(n)"
+      <div class="flex items-center justify-between gap-2 flex-wrap">
+        <div class="text-sm font-medium" style="color: rgba(79, 93, 93, 0.85)">混音軌（最多 {{ maxTracks }} 條）</div>
+        <div class="flex items-center gap-2">
+          <button
+            v-if="tracks.length > 0"
+            type="button"
+            class="px-3 py-2 rounded-xl text-sm"
+            style="background: rgba(156, 175, 170, 0.16); border: 1px solid rgba(156, 175, 170, 0.35)"
+            @click="togglePreview"
+          >
+            {{ previewPlaying ? '終止試聽' : '試聽' }}
+          </button>
+          <button
+            type="button"
+            class="px-3 py-2 rounded-xl text-sm disabled:opacity-40"
+            style="background: rgba(172, 215, 255, 0.14); border: 1px solid rgba(172, 215, 255, 0.35)"
+            :disabled="!canAddTrack"
+            @click="addTrack"
+          >
+            加入音軌
+          </button>
+        </div>
+      </div>
+
+      <div v-if="tracks.length === 0" class="mt-3 text-sm" style="color: rgba(79, 93, 93, 0.7)">
+        點「加入音軌」開始編排。需先解鎖音軌。
+      </div>
+
+      <div class="mt-3 flex flex-col gap-3">
+        <div
+          v-for="(t, idx) in tracks"
+          :key="idx"
+          class="rounded-2xl p-3"
+          style="background: rgba(255, 255, 255, 0.55); border: 1px solid rgba(79, 93, 93, 0.1)"
         >
-          {{ fragments.getFragmentLabel(n) }}
-        </button>
-        <div v-if="fragments.unlockedNoteIds.length === 0" class="text-sm" style="color: rgba(79, 93, 93, 0.7)">
-          先在計時器開始：每 25 分鐘會隨機獲得碎片，集滿 4 個同類型就會解鎖音軌。
+          <div class="flex items-center justify-between gap-2 mb-2">
+            <div class="text-sm font-semibold" style="color: var(--text)">音軌 {{ idx + 1 }}</div>
+            <button
+              type="button"
+              class="px-2 py-1 rounded-lg text-xs"
+              style="background: rgba(79, 93, 93, 0.06); border: 1px solid rgba(79, 93, 93, 0.18)"
+              @click="removeTrack(idx)"
+            >
+              移除
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <label class="block text-xs" style="color: rgba(79, 93, 93, 0.85)">
+              音軌
+              <select
+                v-model="t.noteId"
+                class="mt-1 w-full rounded-xl border border-black/10 bg-white/70 px-2 py-2 text-sm"
+              >
+                <option v-for="id in fragments.unlockedNoteIds" :key="id" :value="id">
+                  {{ fragments.getFragmentLabel(id) }}
+                </option>
+              </select>
+            </label>
+
+            <label class="block text-xs" style="color: rgba(79, 93, 93, 0.85)">
+              位置 {{ Number(t.offsetSec).toFixed(1) }} 秒（0–30）
+              <input v-model.number="t.offsetSec" type="range" min="0" max="30" step="0.1" class="mt-2 w-full" />
+            </label>
+
+            <label class="block text-xs" style="color: rgba(79, 93, 93, 0.85)">
+              音量 {{ Math.round(t.volume * 100) }}%
+              <input v-model.number="t.volume" type="range" min="0" max="1" step="0.01" class="mt-2 w-full" />
+            </label>
+          </div>
+
+          <div
+            class="mt-2 h-1 rounded-full"
+            :style="{
+              background: `linear-gradient(90deg, ${colorFor(t.noteId)}55, rgba(255,255,255,0))`,
+            }"
+          />
         </div>
       </div>
     </div>
@@ -142,7 +332,7 @@ function saveRename() {
       </label>
 
       <button
-        class="px-4 py-2 rounded-xl"
+        class="px-4 py-2 rounded-xl disabled:opacity-40"
         style="background: rgba(151, 206, 80, 0.22); border: 1px solid rgba(151, 206, 80, 0.55)"
         :disabled="!canCreate || generating"
         @click="createRecord"
@@ -158,13 +348,13 @@ function saveRename() {
           v-for="r in music.musicRecords"
           :key="r.id"
           class="rounded-2xl p-3"
-          style="background: rgba(255, 255, 255, 0.55); border: 1px solid rgba(79, 93, 93, 0.10)"
+          style="background: rgba(255, 255, 255, 0.55); border: 1px solid rgba(79, 93, 93, 0.1)"
         >
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
               <div class="font-semibold" style="color: var(--text)">{{ r.name }}</div>
               <div class="text-xs" style="color: rgba(79, 93, 93, 0.7)">
-                note 數：{{ r.noteIds.length }} · {{ new Date(r.createdAt).toLocaleString() }}
+                音軌數：{{ trackCountLabel(r) }} · {{ new Date(r.createdAt).toLocaleString() }}
               </div>
               <div v-if="music.pinnedId === r.id" class="text-xs mt-1" style="color: var(--green); font-weight: 700">
                 已置頂
@@ -174,9 +364,9 @@ function saveRename() {
               <button
                 class="px-3 py-2 rounded-xl text-sm"
                 style="background: rgba(172, 215, 255, 0.14); border: 1px solid rgba(172, 215, 255, 0.35)"
-                @click="music.playRecord(r.id)"
+                @click="toggleRecordPlayback(r.id)"
               >
-                播放
+                {{ playingRecordId === r.id ? '終止' : '播放' }}
               </button>
             </div>
           </div>
@@ -238,7 +428,7 @@ function saveRename() {
         </div>
 
         <div v-if="music.musicRecords.length === 0" class="mt-3 text-sm" style="color: rgba(79, 93, 93, 0.7)">
-          先選擇 1 個以上的音軌並製作，就會產生 30 秒唱片。
+          編排音軌後按下製作，會輸出 30 秒 MP3。
         </div>
       </div>
     </div>
@@ -300,4 +490,3 @@ function saveRename() {
     </div>
   </section>
 </template>
-

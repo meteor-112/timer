@@ -1,14 +1,18 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { useAudioEngine } from '@/composables/useAudioEngine'
-import { renderRecordMp3FromNoteIds } from '@/composables/renderRecordMp3'
+import { legacyMixFromNoteIds, renderRecordMp3FromMix, type MixTrack } from '@/composables/renderRecordTone'
 import { getRecordMp3Blob, hasRecordMp3, putRecordMp3 } from '@/utils/idb/recordMp3Db'
+
+export type MusicTrackMix = MixTrack
 
 export type MusicRecord = {
   id: string
   name: string
   createdAt: number
+  /** 向後相容：舊資料僅有 noteIds；新資料以 mix 為準 */
   noteIds: string[]
+  mix?: MusicTrackMix[]
 }
 
 type MusicPersistState = {
@@ -27,12 +31,23 @@ function generateId(): string {
   }
 }
 
+function clamp01(n: number): number {
+  return Math.max(0, Math.min(1, n))
+}
+
+function normalizeRecord(r: MusicRecord): MusicRecord {
+  if (r.mix && r.mix.length) return r
+  return { ...r, mix: legacyMixFromNoteIds(r.noteIds) }
+}
+
 function loadMusic(): MusicPersistState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return { records: [], pinnedRecordId: null, mp3ReadyAtByRecordId: {} }
     const parsed = JSON.parse(raw) as MusicPersistState
-    return parsed ?? { records: [], pinnedRecordId: null, mp3ReadyAtByRecordId: {} }
+    const base = parsed ?? { records: [], pinnedRecordId: null, mp3ReadyAtByRecordId: {} }
+    const records = (base.records ?? []).map(normalizeRecord)
+    return { ...base, records }
   } catch {
     return { records: [], pinnedRecordId: null, mp3ReadyAtByRecordId: {} }
   }
@@ -61,13 +76,17 @@ function decodeShare<T>(code: string): T | null {
   }
 }
 
+function getMixForRecord(record: MusicRecord): MusicTrackMix[] {
+  if (record.mix?.length) return record.mix.slice(0, 5)
+  return legacyMixFromNoteIds(record.noteIds)
+}
+
 export const useMusicStore = defineStore('music', () => {
   const { records, pinnedRecordId, mp3ReadyAtByRecordId } = loadMusic()
   const musicRecords = ref<MusicRecord[]>(records)
   const pinnedId = ref<string | null>(pinnedRecordId)
   const mp3ReadyAt = ref<Record<string, number>>(mp3ReadyAtByRecordId ?? {})
 
-  // ObjectURL 快取（只保存在記憶體，不進 localStorage）
   const mp3UrlCache = new Map<string, string>()
 
   const pinnedRecord = computed(() => musicRecords.value.find((r) => r.id === pinnedId.value) ?? null)
@@ -76,13 +95,18 @@ export const useMusicStore = defineStore('music', () => {
     return musicRecords.value.find((r) => r.id === id)
   }
 
-  function createRecord(noteIds: string[], name?: string): MusicRecord {
-    const safeIds = [...noteIds]
+  function createRecord(mix: MusicTrackMix[], name?: string): MusicRecord {
+    const safe = mix.slice(0, 5).map((m) => ({
+      noteId: m.noteId,
+      offsetSec: Math.max(0, m.offsetSec),
+      volume: clamp01(m.volume),
+    }))
     const record: MusicRecord = {
       id: generateId(),
       name: name?.trim() ? name.trim() : `唱片-${new Date().toLocaleTimeString()}`,
       createdAt: Date.now(),
-      noteIds: safeIds,
+      noteIds: safe.map((m) => m.noteId),
+      mix: safe,
     }
     musicRecords.value = [record, ...musicRecords.value]
     persistMusic(musicRecords.value, pinnedId.value, mp3ReadyAt.value)
@@ -106,16 +130,21 @@ export const useMusicStore = defineStore('music', () => {
   function shareRecord(recordId: string): string | null {
     const record = getRecordById(recordId)
     if (!record) return null
-    const payload = { v: 1, noteIds: record.noteIds, name: record.name }
+    const mix = getMixForRecord(record)
+    const payload = { v: 2 as const, mix, name: record.name }
     return encodeShare(payload)
   }
 
   function importShareCode(code: string): MusicRecord | null {
-    const payload = decodeShare<{ v: number; noteIds: string[]; name?: string }>(code)
-    if (!payload || payload.v !== 1) return null
-    if (!Array.isArray(payload.noteIds)) return null
-    const noteIds = payload.noteIds.filter(Boolean)
-    return createRecord(noteIds, payload.name ?? undefined)
+    const payload = decodeShare<{ v?: number; noteIds?: string[]; mix?: MusicTrackMix[]; name?: string }>(code)
+    if (!payload) return null
+    if (payload.v === 2 && Array.isArray(payload.mix) && payload.mix.length) {
+      return createRecord(payload.mix, payload.name ?? undefined)
+    }
+    if (Array.isArray(payload.noteIds) && payload.noteIds.length) {
+      return createRecord(legacyMixFromNoteIds(payload.noteIds.filter(Boolean)), payload.name ?? undefined)
+    }
+    return null
   }
 
   function removeRecord(recordId: string): void {
@@ -145,7 +174,8 @@ export const useMusicStore = defineStore('music', () => {
     const record = getRecordById(recordId)
     if (!record) return false
 
-    const blob = await renderRecordMp3FromNoteIds(record.noteIds)
+    const mix = getMixForRecord(record)
+    const blob = await renderRecordMp3FromMix(mix)
     await putRecordMp3(recordId, blob)
 
     mp3ReadyAt.value[recordId] = Date.now()
@@ -171,7 +201,6 @@ export const useMusicStore = defineStore('music', () => {
 
     const audio = useAudioEngine()
 
-    // 優先播放已輸出的 mp3
     const ok = await ensureRecordMp3(recordId).catch(() => false)
     if (ok) {
       const url = await getRecordMp3ObjectUrl(recordId)
@@ -181,7 +210,6 @@ export const useMusicStore = defineStore('music', () => {
       }
     }
 
-    // fallback：如果 mp3 生成失敗，仍保留原本合成播放
     await audio.playRecordByNoteIds(record.noteIds)
   }
 
@@ -201,4 +229,3 @@ export const useMusicStore = defineStore('music', () => {
     removeRecord,
   }
 })
-

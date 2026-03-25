@@ -38,8 +38,10 @@ export const useTimerStore = defineStore('timer', () => {
     }
   }
 
+  // 計算累積時間：只要 startedAtMs 存在，就用 tickNowMs 估算，
+  // 讓倒數「ended」狀態也能正確結算（避免 elapsedMs 變 0）。
   const elapsedMs = computed(() => {
-    if (status.value === 'running' && startedAtMs.value != null) {
+    if (startedAtMs.value != null) {
       return elapsedBeforeMs.value + (tickNowMs.value - startedAtMs.value);
     }
     return elapsedBeforeMs.value;
@@ -163,9 +165,12 @@ export const useTimerStore = defineStore('timer', () => {
     startedAtMs.value = null;
     elapsedBeforeMs.value = 0;
     segmentIndex.value = 0;
-    sessionRewards.value = [];
     clearTicker();
     stopBackgroundPlayback();
+  }
+
+  function clearSessionRewards(): void {
+    sessionRewards.value = [];
   }
 
   function formatDuration(ms: number): string {
@@ -215,6 +220,7 @@ export const useTimerStore = defineStore('timer', () => {
     pause,
     resume,
     stop,
+    clearSessionRewards,
     formatDuration,
   };
 });

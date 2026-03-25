@@ -28,6 +28,24 @@ const completionItems = ref<CompletionItem[]>([]);
 const lastPlayedStep = ref(-1);
 const currentCompletionItem = computed(() => completionItems.value[completionStep.value - 1] ?? null);
 
+function openCompletionModal(minutes: number, rewardsSnapshot: Array<{ fragmentId: string; unlocked: boolean }>) {
+  completionMinutes.value = minutes;
+
+  const fragmentItems: CompletionItem[] = rewardsSnapshot.map((r) => ({
+    kind: 'fragment',
+    fragmentId: r.fragmentId,
+  }));
+
+  // 只列出本次「首次達成」的解鎖音軌（依 rewards 的 unlocked 標記）
+  const unlockIds = Array.from(new Set(rewardsSnapshot.filter((r) => r.unlocked).map((r) => r.fragmentId)));
+  const unlockItems: CompletionItem[] = unlockIds.map((id) => ({ kind: 'unlock', fragmentId: id }));
+
+  completionItems.value = [...fragmentItems, ...unlockItems];
+  completionStep.value = 0;
+  lastPlayedStep.value = -1;
+  showCompletionModal.value = true;
+}
+
 // 計算當前是否允許切換模式（只有在 idle 狀態下才允許）
 const canSwitchMode = computed(() => timer.status === 'idle');
 
@@ -39,6 +57,7 @@ function nextCompletionStep() {
   if (completionStep.value === 0 && !hasMore) {
     showCompletionModal.value = false;
     completionStep.value = 0;
+    timer.clearSessionRewards();
     timer.stop();
     return;
   }
@@ -47,6 +66,7 @@ function nextCompletionStep() {
   else {
     showCompletionModal.value = false;
     completionStep.value = 0;
+    timer.clearSessionRewards();
     timer.stop();
   }
 }
@@ -60,18 +80,11 @@ watch(
     if (newStatus === 'ended') {
       const minutes = Math.floor(timer.elapsedMs / (60 * 1000));
       if (minutes < FOCUS_INTERVAL_MINUTES) return;
-
-      completionMinutes.value = minutes;
-
-      const rewards = timer.sessionRewards ?? [];
-      const fragmentItems = rewards.map((r) => ({ kind: 'fragment' as const, fragmentId: r.fragmentId }));
-      const unlockIds = Array.from(new Set(rewards.filter((r) => r.unlocked).map((r) => r.fragmentId)));
-      const unlockItems = unlockIds.map((id) => ({ kind: 'unlock' as const, fragmentId: id }));
-
-      completionItems.value = [...fragmentItems, ...unlockItems];
-      completionStep.value = 0;
-      lastPlayedStep.value = -1;
-      showCompletionModal.value = true;
+      const rewardsSnapshot = (timer.sessionRewards ?? []).map((r) => ({
+        fragmentId: r.fragmentId,
+        unlocked: r.unlocked,
+      }));
+      openCompletionModal(minutes, rewardsSnapshot);
     }
   },
 );
@@ -120,10 +133,12 @@ function switchMode(newMode: 'up' | 'down') {
 }
 
 function handleResetToInitial() {
+  const minutes = Math.floor(timer.elapsedMs / (60 * 1000));
+  const rewardsSnapshot = (timer.sessionRewards ?? []).map((r) => ({ fragmentId: r.fragmentId, unlocked: r.unlocked }));
+  if (minutes >= FOCUS_INTERVAL_MINUTES) openCompletionModal(minutes, rewardsSnapshot);
+
   timer.stop();
-  if (timer.mode === 'down') {
-    timer.totalDurationMs = downMinutes.value * 60 * 1000;
-  }
+  if (timer.mode === 'down') timer.totalDurationMs = downMinutes.value * 60 * 1000;
 }
 
 onMounted(() => {

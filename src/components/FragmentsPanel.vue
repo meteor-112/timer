@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { FRAGMENT_TYPES } from '@/data/audioCatalog'
+import { computed, onUnmounted, ref } from 'vue'
+import { FRAGMENT_TYPES, NOTE_MAX_DURATION_MS, getFragmentById } from '@/data/audioCatalog'
 import { useFragmentsStore } from '@/stores/fragments'
 
 const fragments = useFragmentsStore()
@@ -13,6 +13,59 @@ const summaryText = computed(() => {
 function pct(count: number): number {
   return Math.min(100, Math.floor((count / 4) * 100))
 }
+
+const playingId = ref<string | null>(null)
+let playingAudio: HTMLAudioElement | null = null
+let playingStopHandle: number | null = null
+
+function stopListening() {
+  playingId.value = null
+  if (playingStopHandle != null) {
+    window.clearTimeout(playingStopHandle)
+    playingStopHandle = null
+  }
+  if (playingAudio) {
+    try {
+      playingAudio.pause()
+      playingAudio.currentTime = 0
+    } catch {
+      // ignore
+    }
+  }
+  playingAudio = null
+}
+
+function toggleListen(id: string) {
+  if (fragments.getCount(id) < 1) return
+
+  if (playingId.value === id) {
+    stopListening()
+    return
+  }
+
+  stopListening()
+
+  const url = getFragmentById(id)?.trackAudioUrl
+  if (!url) return
+
+  const audio = new Audio(url)
+  audio.volume = 0.95
+  audio.onended = () => {
+    if (playingAudio === audio) stopListening()
+  }
+  playingAudio = audio
+  playingId.value = id
+
+  void audio.play().catch(() => {
+    stopListening()
+  })
+
+  playingStopHandle = window.setTimeout(() => {
+    if (playingAudio) stopListening()
+  }, NOTE_MAX_DURATION_MS)
+}
+
+onUnmounted(() => stopListening())
 </script>
 
 <template>
@@ -43,7 +96,7 @@ function pct(count: number): number {
           <div class="flex items-center gap-2">
             <span class="inline-block h-3 w-3 rounded-full" :style="{ background: f.color, boxShadow: `0 0 16px ${f.color}55` }" />
             <div>
-              <div class="font-semibold" style="color: var(--text)">{{ f.label }}</div>
+              <div class="font-semibold" style="color: var(--text)">{{ fragments.getCount(f.id) >= 1 ? f.label : '未知' }}</div>
               <div class="text-xs" style="color: rgba(79, 93, 93, 0.7)">碎片 x{{ fragments.getCount(f.id) }}</div>
             </div>
           </div>
@@ -67,9 +120,10 @@ function pct(count: number): number {
             class="px-3 py-2 rounded-xl text-sm"
             style="background: rgba(172, 215, 255, 0.14); border: 1px solid rgba(172, 215, 255, 0.35)"
             :disabled="fragments.getCount(f.id) < 4"
-            @click="fragments.playUnlockedNote(f.id)"
+            @click="toggleListen(f.id)"
+            :class="fragments.getCount(f.id) < 4 ? 'opacity-40 cursor-not-allowed' : ''"
           >
-            聆聽
+            {{ playingId === f.id ? '終止' : '聆聽' }}
           </button>
         </div>
       </div>
@@ -77,7 +131,14 @@ function pct(count: number): number {
 
     <div v-if="fragments.lastCollected" class="mt-4 text-sm" style="color: rgba(79, 93, 93, 0.85)">
       最近一次：
-      <span style="font-weight: 700">{{ fragments.getFragmentLabel(fragments.lastCollected.fragmentId) }}</span>（+1）
+      <span style="font-weight: 700">
+        {{
+          fragments.getCount(fragments.lastCollected.fragmentId) >= 4
+            ? fragments.getFragmentLabel(fragments.lastCollected.fragmentId)
+            : '未知'
+        }}
+      </span>
+      （+1）
     </div>
   </section>
 </template>
