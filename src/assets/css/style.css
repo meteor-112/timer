@@ -16,6 +16,10 @@
   --color-blue: #acd7ff;
 }
 
+* {
+  box-sizing: border-box;
+}
+
 html,
 body {
   height: 100%;
@@ -27,11 +31,7 @@ body {
   color: var(--text);
 }
 
-* {
-  box-sizing: border-box;
-}
-
-h1{
+h1 {
   font-size: 28px;
 }
 h2 {

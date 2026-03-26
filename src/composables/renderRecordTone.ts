@@ -4,6 +4,7 @@ import { audioBufferToWavBlob } from '@/utils/audio/audioBufferToWav'
 import { wavBlobToMp3Blob } from '@/utils/mp3/wavToMp3Ffmpeg'
 
 export type MixTrack = {
+  id: string;
   noteId: string
   /** 在 30 秒時間軸上的起始位置（秒） */
   offsetSec: number
@@ -66,6 +67,7 @@ export function legacyMixFromNoteIds(noteIds: string[]): MixTrack[] {
   const n = ids.length
   const seg = 30 / n
   return ids.map((noteId, i) => ({
+    id: `legacy-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 5)}`,
     noteId,
     offsetSec: seg * i,
     volume: 0.65,
