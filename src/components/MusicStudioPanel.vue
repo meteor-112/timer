@@ -278,12 +278,12 @@ onUnmounted(() => {
 <template>
   <section class="space-y-8 px-5 py-6">
     <header class="z-10 flex flex-col justify-between gap-4 border-b border-stone-300 pb-6 md:flex-row md:items-center">
-      <p class="mt-1 text-sm font-medium text-stone-600">
+      <p class="mt-1 font-medium text-stone-600">
         挑選最多 5 項碎片，揉合時間與音量，<br />
         煉製專屬的 30 秒靜心旋律。
       </p>
       <div
-        class="flex items-center gap-3 self-start rounded-2xl border border-stone-300 bg-stone-200/80 px-4 py-2.5 shadow-sm backdrop-blur-sm md:self-center"
+        class="flex items-center gap-3 self-start rounded-2xl border border-stone-300 bg-gray-50 px-4 py-2.5 shadow-sm backdrop-blur-sm md:self-center"
       >
         <div class="relative flex h-3 w-3">
           <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-500 opacity-75"></span>
