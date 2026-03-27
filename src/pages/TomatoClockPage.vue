@@ -110,7 +110,7 @@ function openPanel(next: TabKey) {
       <div v-if="drawerOpen" class="fixed inset-0 z-50 bg-black/10 backdrop-blur-[2px]" @click="drawerOpen = false" />
 
       <aside
-        class="fixed top-0 right-0 z-50 h-dvh w-[92vw] max-w-[800px] transition-transform duration-200"
+        class="fixed top-0 right-0 z-50 h-dvh w-[92vw] max-w-[700px] transition-transform duration-200"
         :class="drawerOpen ? 'translate-x-0' : 'translate-x-full'"
         aria-label="右側面板"
       >

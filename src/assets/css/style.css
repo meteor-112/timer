@@ -14,6 +14,12 @@
   --color-text: #4f5d5d;
   --color-green: #97ce50;
   --color-blue: #acd7ff;
+
+  --text-xs: 14px;
+  --text-sm: 16px;
+  --text-md: 20px;
+  --text-lg: 24px;
+  --text-xl: 28px;
 }
 
 * {
@@ -29,6 +35,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
+  font-size: 20px;
 }
 
 h1 {

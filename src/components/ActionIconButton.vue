@@ -23,18 +23,18 @@ defineEmits<{
   (e: 'click'): void;
 }>();
 
-// 顏色對照表：方便未來無限擴充
+// 顏色對照表
 const variantStyles: Record<ButtonVariant, string> = {
-  stone: 'bg-[#f0efee] text-stone-500 hover:bg-[#E7E5E4]',
+  stone: 'bg-[#f0efee] text-stone-500',
   emerald: 'bg-green-200/70 text-emerald-600',
-  red: 'bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-500',
-  blue: 'bg-blue-50 text-blue-600 hover:bg-blue-100',
-  amber: 'bg-amber-50 text-amber-600 hover:bg-amber-100',
+  red: 'bg-red-50 text-red-400 hover:text-red-500',
+  blue: 'bg-blue-50 text-blue-600',
+  amber: 'bg-amber-50 text-amber-600',
 };
 
 const buttonClasses = computed(() => {
   return [
-    'flex items-center justify-center rounded-xl px-3 py-2 transition-all active:scale-95 cursor-pointer',
+    'flex items-center justify-center rounded-xl transition-all active:scale-95 cursor-pointer py-2 hover:bg-[#E7E5E4]',
     variantStyles[props.variant],
     props.flex ? 'flex-1' : '',
     props.customClass,
@@ -44,7 +44,7 @@ const buttonClasses = computed(() => {
 
 <template>
   <button type="button" :class="buttonClasses" :title="title" @click="$emit('click')">
-    <component :is="icon" class="h-4 w-4" />
+    <component :is="icon" class="h-6 w-6" />
     <slot />
   </button>
 </template>

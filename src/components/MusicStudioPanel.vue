@@ -38,7 +38,7 @@ let previewStopHandle: number | null = null; // 預聽總時長 (30s) 的定時�
 const previewStartHandles = new Set<number>(); // 各音軌延遲觸發的定時器集合
 let previewAudios: HTMLAudioElement[] = []; // 預聽中的 Audio 物件池
 let recordAudioEl: HTMLAudioElement | null = null; // 播放已存唱片的單一 Audio 物件
-
+const controlTypes = ['offsetSec', 'volume'] as const;
 const maxTracks = 5; // 最大混音軌數量限制
 
 // --- 計算屬性 (Getters) ---
@@ -277,55 +277,56 @@ onUnmounted(() => {
 
 <template>
   <section class="space-y-8 px-5 py-6">
-    <header class="z-10 flex flex-col justify-between gap-4 md:flex-row md:items-center">
-      <p class="mt-1 text-stone-500">
+    <header class="z-10 flex flex-col justify-between gap-4 border-b border-stone-300 pb-6 md:flex-row md:items-center">
+      <p class="mt-1 text-sm font-medium text-stone-600">
         挑選最多 5 項碎片，揉合時間與音量，<br />
         煉製專屬的 30 秒靜心旋律。
       </p>
       <div
-        class="flex items-center gap-3 self-start rounded-2xl border border-white bg-white/80 px-4 py-2.5 shadow-sm backdrop-blur-sm md:self-center"
+        class="flex items-center gap-3 self-start rounded-2xl border border-stone-300 bg-stone-200/80 px-4 py-2.5 shadow-sm backdrop-blur-sm md:self-center"
       >
         <div class="relative flex h-3 w-3">
-          <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#94eb09] opacity-75"></span>
-          <span class="relative inline-flex h-3 w-3 rounded-full bg-[#94eb09]"></span>
+          <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-500 opacity-75"></span>
+          <span class="relative inline-flex h-3 w-3 rounded-full bg-amber-500"></span>
         </div>
-        <span class="text-sm font-semibold">可用材料：{{ fragments.unlockedNoteIds.length }}</span>
+        <span class="text-sm font-bold tracking-tight text-stone-700"
+          >可用材料：{{ fragments.unlockedNoteIds.length }}</span
+        >
       </div>
     </header>
-
-    <!-- 調音臺 -->
+    <!-- 工作檯 -->
     <div class="space-y-4">
       <div class="flex items-center justify-between px-1">
-        <section class="flex items-center gap-2">
-          <AudioLines class="h-5 w-5" />
-          <h3>工作臺</h3>
+        <section class="flex items-center gap-2 text-stone-700">
+          <AudioLines class="h-7 w-7" />
+          <h3 class="font-mono text-lg font-bold tracking-widest uppercase">工作臺</h3>
         </section>
+
         <div class="flex items-center gap-2">
           <button
             v-if="tracks.length > 0"
             @click="togglePreview"
-            class="group flex cursor-pointer items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-2 text-sm font-bold text-stone-600 transition-all hover:border-stone-400 active:scale-95"
+            class="group flex cursor-pointer items-center gap-2 rounded-xl border-2 border-stone-400 bg-stone-100 px-4 py-2 text-sm font-bold text-stone-700 transition-all hover:border-stone-500 hover:bg-white active:scale-95"
           >
             <Square v-show="previewPlaying" class="h-4 w-4 text-red-500" />
-            <Play v-show="!previewPlaying" class="h-4 w-4 text-stone-400" />
-
+            <Play v-show="!previewPlaying" class="h-4 w-4 text-amber-500" />
             {{ previewPlaying ? '停止試聽' : '試聽混音' }}
           </button>
+
           <button
             :disabled="!canAddTrack"
             @click="addTrack"
-            class="flex cursor-pointer items-center gap-2 rounded-xl bg-emerald-400 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-stone-200 transition-all hover:bg-emerald-500 active:scale-95 disabled:opacity-30 disabled:grayscale"
+            class="flex cursor-pointer items-center gap-2 rounded-xl bg-stone-800 px-4 py-2 text-sm font-bold text-white shadow-[0_4px_0_rgb(168,162,158)] transition-all hover:bg-stone-900 active:translate-y-1 active:shadow-none disabled:opacity-30 disabled:grayscale"
           >
-            <Plus class="h-4 w-4" /> 加入音軌
+            <Plus class="h-4 w-4 text-amber-400" /> 加入音軌
           </button>
         </div>
       </div>
-      <!-- 未加入音軌時 -->
       <div
         v-if="tracks.length === 0"
-        class="relative flex flex-col items-center justify-center rounded-[32px] border-2 border-dashed border-stone-200 bg-stone-50/50 py-12"
+        class="relative flex flex-col items-center justify-center rounded-[32px] border-2 border-dashed border-stone-400 bg-stone-50/50 py-12"
       >
-        <p class="text-sm text-stone-400">工作臺上空無一物，請加入音軌開始創作</p>
+        <p class="text-theme text-wrap">加入音軌開始製作！</p>
         <!-- 背景圖 -->
         <div class="pointer-events-none absolute -right-4 -bottom-4 opacity-5 select-none">
           <svg width="120" height="120" viewBox="0 0 24 24">
@@ -336,21 +337,19 @@ onUnmounted(() => {
           </svg>
         </div>
       </div>
-
-      <!-- 音軌列表 -->
       <div v-if="tracks.length > 0" class="flex flex-col gap-4">
         <transition-group name="list" tag="div" class="grid gap-4">
           <div
             v-for="(t, idx) in tracks"
             :key="t.id"
-            class="group relative rounded-[28px] border border-stone-100 bg-white p-5 shadow-sm transition-all hover:border-stone-200 hover:shadow-md"
+            class="group relative rounded-[28px] border border-stone-200 bg-stone-50 p-5 shadow-[4px_4px_0_rgb(214,211,209)] transition-all hover:border-amber-300"
           >
-            <!-- 上半部 -->
-            <div class="mb-4 flex items-center justify-between gap-x-4">
-              <p class="font-bold text-stone-500">音軌{{ idx + 1 }}</p>
+            <div class="mb-4 flex items-center justify-between gap-x-6">
+              <p class="font-mono text-lg font-bold text-stone-600 uppercase">Track_{{ idx + 1 }}</p>
+
               <select
                 v-model="t.noteId"
-                class="w-24 rounded-lg border border-stone-300 bg-stone-50 px-2 py-1 text-sm font-medium text-stone-700 focus:ring-1 focus:ring-green-300"
+                class="w-32 rounded-lg border border-stone-300 bg-white px-2 py-1 font-bold focus:border-amber-400 focus:ring-1 focus:ring-amber-300"
               >
                 <option v-for="id in fragments.unlockedNoteIds" :key="id" :value="id">
                   {{ fragments.getFragmentLabel(id) }}
@@ -359,110 +358,96 @@ onUnmounted(() => {
 
               <button
                 @click="removeTrack(idx)"
-                class="ml-auto cursor-pointer rounded-lg p-2 text-stone-500 opacity-0 transition-all group-hover:opacity-100 hover:bg-red-50 hover:text-red-400"
+                class="ml-auto cursor-pointer rounded-lg p-2 text-stone-400 opacity-0 transition-all group-hover:opacity-100 hover:bg-red-50 hover:text-red-500"
               >
                 <Trash2 class="h-5 w-4" />
               </button>
             </div>
-            <!-- 調整區 -->
+
             <div class="grid grid-cols-1 gap-8 md:grid-cols-2">
-              <!-- 時間 -->
-              <div class="space-y-2">
-                <div class="flex justify-between">
-                  <label :for="'track-offset-' + idx" class="cursor-pointer text-sm font-bold text-stone-400 uppercase">
-                    出現時間
+              <div v-for="type in controlTypes" :key="type" class="space-y-2">
+                <div class="flex items-center justify-between">
+                  <label
+                    :for="'track-' + type + '-' + idx"
+                    class="cursor-pointer text-sm font-black tracking-widest text-stone-500 uppercase"
+                  >
+                    {{ type === 'offsetSec' ? '出現時間' : '音量' }}
                   </label>
-                  <span class="font-mono text-sm font-bold text-stone-600">{{ t.offsetSec.toFixed(1) }}s</span>
+                  <span class="rounded px-2 py-0.5 font-mono font-bold text-amber-700">
+                    {{ type === 'offsetSec' ? t.offsetSec.toFixed(1) + 's' : Math.round(t.volume * 100) + '%' }}
+                  </span>
                 </div>
                 <input
-                  :id="'track-offset-' + idx"
-                  v-model.number="t.offsetSec"
+                  :id="'track-' + type + '-' + idx"
+                  v-model.number="t[type]"
                   type="range"
-                  min="0"
-                  max="30"
-                  step="0.1"
-                  class="w-full bg-stone-300"
-                />
-              </div>
-              <!-- 音量 -->
-              <div class="space-y-2">
-                <div class="flex justify-between">
-                  <label :for="'track-volume-' + idx" class="cursor-pointer text-sm font-bold text-stone-400 uppercase">
-                    音量
-                  </label>
-                  <span class="font-mono text-sm font-bold text-stone-600">{{ Math.round(t.volume * 100) }}%</span>
-                </div>
-                <input
-                  :id="'track-volume-' + idx"
-                  v-model.number="t.volume"
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.01"
-                  class="w-full bg-stone-300"
+                  :min="0"
+                  :max="type === 'offsetSec' ? 30 : 1"
+                  :step="type === 'offsetSec' ? 0.1 : 0.01"
+                  class="w-full cursor-pointer accent-amber-500"
                 />
               </div>
             </div>
           </div>
         </transition-group>
-        <transition name="fade">
-          <footer
-            class="relative mt-2 overflow-hidden rounded-[32px] border border-stone-300 bg-stone-300/90 p-8 shadow-inner"
-          >
-            <div class="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/60 to-transparent"></div>
-            <div class="space-y-3">
-              <label class="text ml-2 font-bold tracking-widest text-black">唱片標題</label>
 
-              <input
-                v-model="recordName"
-                type="text"
-                placeholder="例如：午後的禪意..."
-                class="mt-1 w-full rounded-2xl border-stone-300 bg-white px-4 py-3 text-stone-800 shadow-sm transition-all placeholder:text-stone-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
-              />
+        <footer
+          class="relative mt-2 overflow-hidden rounded-[32px] border border-stone-200 bg-stone-100 p-8 shadow-inner"
+        >
+          <div class="pointer-events-none absolute inset-0 bg-gradient-to-br from-amber-50/50 to-transparent"></div>
 
-              <div class="flex justify-between">
-                <label class="group flex w-fit cursor-pointer items-center gap-3">
-                  <div
-                    class="relative flex h-6 w-6 items-center justify-center rounded-lg border-2 border-stone-400 bg-white transition-colors group-hover:border-emerald-500"
-                  >
-                    <input type="checkbox" v-model="pinAfterCreate" class="absolute cursor-pointer opacity-0" />
+          <div class="relative z-10 space-y-4">
+            <label class="ml-2 font-mono text-sm font-black tracking-[0.2em] text-stone-700 uppercase"
+              >Record Label</label
+            >
 
-                    <div v-show="pinAfterCreate" class="h-3 w-3 rounded-sm bg-emerald-500"></div>
-                  </div>
+            <input
+              v-model="recordName"
+              type="text"
+              placeholder="INPUT FILENAME..."
+              class="w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm font-bold text-stone-800 placeholder:text-stone-400 focus:border-amber-400 focus:ring-1 focus:ring-amber-200"
+            />
 
-                  <span class="text-sm font-medium text-stone-600">製作完成後自動置頂</span>
-                </label>
-
-                <button
-                  :disabled="!canCreate || generating"
-                  @click="createRecord"
-                  class="w-full rounded-xl px-4 py-2 text-base font-black transition-all active:scale-95 disabled:opacity-50 disabled:grayscale lg:w-auto"
-                  :class="
-                    generating
-                      ? 'cursor-wait bg-stone-300 text-stone-500'
-                      : 'bg-emerald-400 text-white hover:bg-emerald-500'
-                  "
+            <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <label class="group flex w-fit cursor-pointer items-center gap-3">
+                <div
+                  class="relative flex h-6 w-6 items-center justify-center rounded-lg border-2 border-stone-300 bg-white transition-colors group-hover:border-amber-400"
                 >
-                  {{ generating ? '製作中...' : '儲存' }}
-                </button>
-              </div>
+                  <input type="checkbox" v-model="pinAfterCreate" class="absolute cursor-pointer opacity-0" />
+                  <div v-show="pinAfterCreate" class="h-3.5 w-3.5 rounded-sm bg-amber-500"></div>
+                </div>
+                <span class="text-xs font-medium text-stone-600">Auto-Pin after save</span>
+              </label>
+
+              <button
+                @click="createRecord"
+                :disabled="!canCreate || generating"
+                class="w-full rounded-xl px-8 py-3 text-sm font-black transition-all active:translate-y-1 active:shadow-none disabled:opacity-50 lg:w-auto"
+                :class="
+                  generating
+                    ? 'bg-stone-300 text-stone-500 shadow-none'
+                    : 'border border-stone-300 bg-stone-200 text-stone-800 shadow-[0_4px_0_rgb(168,162,158)] hover:bg-stone-300'
+                "
+              >
+                {{ generating ? 'PROCESSING...' : 'SAVE DATA' }}
+              </button>
             </div>
-          </footer>
-        </transition>
+          </div>
+        </footer>
       </div>
     </div>
 
     <!-- 收藏夾 -->
     <div class="space-y-6">
-      <section class="flex items-center gap-2">
-        <Disc2 class="h-5 w-5" />
-        <h3>收藏夾</h3>
+      <section class="flex items-center gap-2 text-stone-700">
+        <Disc2 class="h-7 w-7" />
+        <h3 class="font-mono text-lg font-bold tracking-widest uppercase">收藏夾</h3>
       </section>
       <div
         v-if="music.musicRecords.length === 0"
-        class="relative flex flex-col items-center justify-center rounded-[32px] border-2 border-dashed border-stone-200 bg-stone-50/50 py-12"
+        class="relative flex flex-col items-center justify-center rounded-[32px] border-2 border-dashed border-stone-400 bg-stone-50/50 py-12"
       >
-        <p class="text-sm text-stone-400">收藏上空無一物，加入你的音樂！</p>
+        <p class="text-theme">現在沒有音樂收藏</p>
         <!-- 背景圖 -->
         <div class="pointer-events-none absolute -right-4 -bottom-4 opacity-5 select-none">
           <svg width="120" height="120" viewBox="0 0 24 24">
@@ -475,91 +460,77 @@ onUnmounted(() => {
       </div>
       <!-- 收藏列表 -->
       <div v-if="music.musicRecords.length > 0">
-        <transition-group name="fade" tag="div" class="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <transition-group name="fade" tag="div" class="grid grid-cols-1 gap-6 md:grid-cols-2">
           <div
             v-for="r in sortedRecords"
             :key="r.id"
-            class="group relative flex flex-col rounded-xl border-r-4 border-b-4 border-stone-300 bg-stone-200 p-1.5 transition-all hover:translate-y-0.5"
+            class="group relative flex flex-col rounded-[24px] border-4 border-stone-800 bg-stone-300 p-2 shadow-[6px_6px_0_rgb(87,83,78)] transition-all hover:-translate-y-0.5"
           >
             <div v-if="music.pinnedId === r.id" class="absolute -top-2 -left-2 z-20">
               <div class="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500 text-white shadow-md">
                 <Pin class="h-3.5 w-3.5 fill-current" />
               </div>
             </div>
-
-            <div class="flex flex-1 flex-col rounded-lg bg-stone-100 p-4 shadow-inner">
-              <div class="] relative mb-6 min-h-[70px] rounded-md border-2 border-stone-300 bg-gray-200 p-3">
+            <div class="flex flex-1 flex-col rounded-[18px] bg-stone-400/30 p-4 shadow-inner">
+              <div class="relative mb-4 min-h-[70px] rounded-xl border-4 border-stone-800 bg-stone-900 p-3">
                 <section class="min-w-0 flex-1">
-                  <h5 class="text-text ] truncate font-mono text-lg font-bold tracking-wider">
-                    {{ r.name }}
-                  </h5>
-                  <div
-                    class="mt-1 flex items-center gap-2 font-mono text-[9px] font-medium tracking-widest text-stone-500 uppercase"
-                  >
-                    <span class="rounded-sm bg-blue-400/20 px-1 text-emerald-900">Playing</span>
-                    <span class="animate-pulse">●</span>
-                    <span class="ml-auto text-stone-400">{{ new Date(r.createdAt).toLocaleDateString() }}</span>
+                  <h5 class="truncate font-mono text-lg font-bold tracking-wider text-stone-100">{{ r.name }}</h5>
+                  <div class="mt-1 flex items-center gap-2 font-mono text-xs font-black text-stone-500 uppercase">
+                    <span class="rounded bg-amber-900/50 px-1.5 py-0.5 text-amber-400 ring-1 ring-amber-900"
+                      >Registered</span
+                    >
+                    <span class="ml-auto">{{ new Date(r.createdAt).toLocaleDateString() }}</span>
                   </div>
                 </section>
-                <div class="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/5 to-transparent"></div>
               </div>
 
               <div
-                class="] relative mb-6 flex h-20 items-center justify-between overflow-hidden rounded-lg border-2 border-stone-300 bg-gray-300 p-2"
+                class="relative mb-4 flex h-20 items-center justify-between rounded-xl border-4 border-stone-800 bg-stone-800/20 p-3.5"
               >
                 <div
-                  class="z-10 flex h-12 w-12 items-center justify-center rounded-full border-2 border-stone-500 bg-gray-400 shadow-sm"
+                  class="z-10 flex h-14 w-14 items-center justify-center rounded-full border-4 border-stone-800 bg-stone-300 shadow-inner"
                 >
-                  <div class="h-8 w-8 rounded-full border-4 border-dashed border-stone-700 opacity-40"></div>
+                  <div class="h-8 w-8 rounded-full border-4 border-dashed border-stone-800 opacity-20"></div>
                 </div>
-
-                <div class="absolute inset-x-12 top-1/2 flex -translate-y-1/2 flex-col gap-1.5 opacity-20">
-                  <div class="h-0.5 w-full bg-stone-900 to-transparent"></div>
-                  <div class="h-0.5 w-full bg-stone-900 to-transparent"></div>
+                <div class="absolute inset-x-12 top-1/2 flex -translate-y-1/2 flex-col gap-5 opacity-20">
+                  <div class="h-1 w-full bg-black to-transparent"></div>
+                  <div class="h-1 w-full bg-black to-transparent"></div>
                 </div>
-
-                <div
-                  class="relative z-10 flex h-12 w-12 items-center justify-center rounded-full border-2 border-stone-700 bg-gray-200 shadow-sm"
-                >
-                  <div class="absolute inset-0 flex items-center justify-center">
-                    <PlayStopButton
-                      :is-playing="playingRecordId === r.id"
-                      class="scale-110 transition-transform hover:scale-105"
-                      @click="toggleRecordPlayback(r.id)"
-                    />
-                  </div>
-                </div>
-
-                <div class="pointer-events-none absolute inset-0 bg-gradient-to-tr from-white/5 to-transparent"></div>
+                <PlayStopButton
+                  :is-playing="playingRecordId === r.id"
+                  :size="52"
+                  class="z-10 rounded-full border-4 border-stone-800 bg-stone-100"
+                  @click="toggleRecordPlayback(r.id)"
+                />
               </div>
 
-              <div class="mt-auto flex items-center justify-between">
+              <div class="grid grid-cols-4 gap-3">
                 <ActionIconButton
                   :icon="music.pinnedId === r.id ? PinOff : Pin"
                   :variant="music.pinnedId === r.id ? 'emerald' : 'stone'"
                   :title="music.pinnedId === r.id ? '取消置頂' : '置頂'"
-                  class="border border-stone-200 bg-stone-50 shadow-sm"
+                  class="button-3d-stone border-2 border-stone-800 bg-stone-200"
                   @click="music.setPinned(music.pinnedId === r.id ? null : r.id)"
                 />
                 <ActionIconButton
                   :icon="SquarePen"
                   title="修改名稱"
                   variant="stone"
-                  class="border border-stone-200 bg-stone-50 shadow-sm"
+                  class="button-3d-stone border-2 border-stone-800 bg-stone-200"
                   @click="beginRename(r)"
                 />
                 <ActionIconButton
                   :icon="Share2"
                   title="分享"
                   variant="stone"
-                  class="border border-stone-200 bg-stone-50 shadow-sm"
+                  class="button-3d-stone border-2 border-stone-800 bg-stone-200"
                   @click="startShare(r.id)"
                 />
                 <ActionIconButton
                   :icon="Trash2"
                   title="刪除"
                   variant="red"
-                  class="border border-stone-200 bg-stone-50 text-stone-400 shadow-sm hover:text-red-500"
+                  class="button-3d-stone border-2 border-stone-800 bg-stone-200"
                   @click="confirmDelete(r.id)"
                 />
               </div>
@@ -567,11 +538,11 @@ onUnmounted(() => {
 
             <div
               v-if="editTargetId === r.id"
-              class="animate-in slide-in-from-top-1 absolute inset-x-4 top-4 z-30 rounded-md bg-amber-50 p-4 shadow-xl ring-1 ring-amber-200/50"
+              class="absolute inset-x-2 top-4 z-30 bg-amber-100 px-4 pt-4 pb-2 shadow-md ring-1 shadow-gray-400 ring-amber-200/50"
             >
               <div class="mb-2 flex items-center justify-between border-b border-amber-200 pb-1">
-                <span class="font-mono text-[10px] font-bold text-amber-600 uppercase">Edit Label</span>
-                <span class="text-[10px] text-amber-400">#001</span>
+                <span class="text-xs font-bold tracking-widest text-amber-600 uppercase">Edit Label</span>
+                <span class="text-xs text-amber-400">#001</span>
               </div>
               <input
                 v-model="editName"
@@ -579,18 +550,18 @@ onUnmounted(() => {
                 @keyup.enter="saveRename"
                 @keyup.esc="editTargetId = null"
                 autofocus
-                class="w-full border-none bg-transparent p-0 font-serif text-lg font-bold text-stone-800 placeholder:text-amber-200 focus:ring-0"
+                class="w-full border-none bg-transparent p-0 text-lg font-bold text-stone-800 placeholder:text-amber-200 focus:ring-0"
               />
               <div class="mt-4 flex gap-2">
                 <button
                   @click="saveRename"
-                  class="flex-1 rounded-md bg-amber-600 py-2 text-[10px] font-bold text-white shadow-sm hover:bg-amber-700 active:scale-95"
+                  class="flex-1 rounded-md bg-amber-600 py-2 text-xs font-bold text-white shadow-sm hover:bg-amber-700 active:scale-95"
                 >
                   確認更新
                 </button>
                 <button
                   @click="editTargetId = null"
-                  class="flex-1 rounded-md border border-amber-200 bg-white py-2 text-[10px] font-bold text-amber-600 hover:bg-amber-100 active:scale-95"
+                  class="flex-1 rounded-md border border-amber-200 bg-white py-2 text-xs font-bold text-amber-600 hover:bg-gray-100 active:scale-95"
                 >
                   取消
                 </button>
@@ -603,61 +574,111 @@ onUnmounted(() => {
     </div>
 
     <!-- 通訊 -->
-    <div class="space-y-6">
-      <section class="flex items-center gap-2">
-        <RadioTower class="h-5 w-5" />
-        <h3>工坊通訊</h3>
+    <section class="flex items-center gap-2 text-stone-700">
+      <RadioTower class="h-7 w-7" />
+      <h3 class="font-mono text-lg font-bold tracking-widest uppercase">工坊通訊</h3>
+    </section>
+    <div class="space-y-6 rounded-[40px] border-6 border-stone-600 bg-stone-400 p-8">
+      <!-- 上緣 -->
+      <section class="mb-4 flex items-center gap-3 border-b-2 border-stone-800 pb-4">
+        <div class="rounded-lg border border-stone-600 bg-stone-900 p-2 shadow-inner">
+          <RadioTower class="h-5 w-5 text-amber-400" />
+        </div>
+        <h3 class="font-mono text-white uppercase">COMM-UNIT 01</h3>
+        <div class="ml-auto flex gap-1.5 rounded border border-stone-800 bg-gray-300 p-1.5">
+          <div v-for="line in 4" class="h-5 w-1 rounded-full bg-stone-800"></div>
+        </div>
       </section>
-      <div class="grid grid-cols-1 gap-6 rounded-[32px] border border-stone-200 bg-stone-100/80 p-6 sm:grid-cols-2">
-        <div class="space-y-3">
-          <div class="flex items-center justify-between">
-            <label class="text-xs font-bold text-stone-500 uppercase">分享碼</label>
-            <span class="text-[10px] text-stone-400">點擊唱片「分享」自動填入</span>
+      <!-- 內容區 -->
+      <div class="grid grid-cols-1 gap-8 p-2 sm:grid-cols-2">
+        <div class="space-y-4">
+          <div class="flex items-center justify-between px-1">
+            <div class="flex items-center gap-3 font-bold text-white uppercase">
+              <span
+                class="h-4 w-4 rounded-full border border-red-900 bg-red-400 shadow-[0_0_8px_rgba(220,38,38,0.6)]"
+              ></span>
+              分享區
+            </div>
           </div>
-          <textarea
-            v-model="shareCode"
-            placeholder="尚未選取分享內容"
-            class="min-h-28 w-full rounded-2xl border-stone-200 bg-white/80 px-4 py-3 text-sm text-stone-600 focus:ring-stone-200"
-          />
-          <div class="flex gap-2">
+          <div class="relative">
+            <textarea
+              v-model="shareCode"
+              placeholder="STANDBY..."
+              class="min-h-32 w-full rounded-xl border-[6px] border-stone-900 bg-emerald-700/80 px-4 py-3 font-mono text-sm text-stone-100 shadow-[inset_0_0_8px_rgba(0,0,0,1)] placeholder:text-stone-100 focus:ring-0 focus:outline-none"
+            />
+          </div>
+          <!-- 分享按鍵區 -->
+          <div class="flex gap-4">
             <button
-              class="flex-1 rounded-xl bg-sky-100 px-4 py-2.5 text-xs font-bold text-sky-700 transition-colors hover:bg-sky-200 disabled:opacity-40"
+              class="group relative flex-1 transition-all active:top-1"
               :disabled="!shareCode.trim()"
               @click="copyShareCode"
             >
-              複製分享碼
+              <div
+                class="rounded-md border border-stone-600 bg-stone-500 px-4 py-3 text-center text-sm font-bold tracking-widest text-stone-50 uppercase shadow-[0_6px_0_rgb(41,37,36)] group-active:shadow-[0_2px_0_rgb(41,37,36)]"
+              >
+                Send Code
+              </div>
             </button>
-            <button
-              class="rounded-xl bg-stone-200 px-4 py-2.5 text-xs font-bold text-stone-600 transition-colors hover:bg-stone-300"
-              @click="shareCode = ''"
-            >
-              清空
+            <button class="group relative transition-all active:top-1" @click="shareCode = ''">
+              <div
+                class="rounded-md border border-stone-500 bg-stone-800 px-4 py-3 text-center text-sm font-bold text-stone-100 uppercase shadow-[0_6px_0_rgb(28,25,23)] group-active:shadow-[0_2px_0_rgb(41,37,36)]"
+              >
+                reset
+              </div>
             </button>
           </div>
         </div>
 
-        <div class="space-y-3">
-          <label class="text-xs font-bold text-stone-500 uppercase">匯入唱片</label>
-          <textarea
-            v-model="importCode"
-            placeholder="在此貼上好友的分享碼..."
-            class="min-h-28 w-full rounded-2xl border-stone-200 bg-white/80 px-4 py-3 text-sm text-stone-600 focus:ring-stone-200"
-          />
-          <div class="flex gap-2">
+        <div class="space-y-4">
+          <div class="flex items-center justify-between px-1">
+            <div class="flex items-center gap-3 font-bold text-white uppercase">
+              <span
+                class="h-4 w-4 rounded-full border border-red-900 bg-red-400 shadow-[0_0_8px_rgba(220,38,38,0.6)]"
+              ></span>
+              匯入
+            </div>
+          </div>
+          <div class="relative">
+            <textarea
+              v-model="importCode"
+              placeholder="AWAITING..."
+              class="min-h-32 w-full rounded-xl border-[6px] border-stone-900 bg-emerald-700/80 px-4 py-3 font-mono text-sm text-stone-100 shadow-[inset_0_0_8px_rgba(0,0,0,1)] placeholder:text-stone-100 focus:ring-0 focus:outline-none"
+            />
+          </div>
+          <!-- 分享按鍵區 -->
+          <div class="flex gap-4">
             <button
-              class="flex-1 rounded-xl bg-emerald-100 px-4 py-2.5 text-xs font-bold text-emerald-700 transition-colors hover:bg-emerald-200 disabled:opacity-40"
+              class="group relative flex-1 transition-all active:top-1"
               :disabled="!importCode.trim()"
               @click="doImport"
             >
-              匯入並自動置頂
+              <div
+                class="rounded-md border border-stone-600 bg-stone-500 px-4 py-3 text-center text-sm font-bold tracking-widest text-stone-50 uppercase shadow-[0_6px_0_rgb(41,37,36)] group-active:shadow-[0_2px_0_rgb(41,37,36)]"
+              >
+                IMPORT
+              </div>
             </button>
-            <button
-              class="rounded-xl bg-stone-200 px-4 py-2.5 text-xs font-bold text-stone-600 transition-colors hover:bg-stone-300"
-              @click="importCode = ''"
-            >
-              清空
+            <button class="group relative transition-all active:top-1" @click="importCode = ''">
+              <div
+                class="rounded-md border border-stone-500 bg-stone-800 px-4 py-3 text-center text-sm font-bold text-stone-100 uppercase shadow-[0_6px_0_rgb(28,25,23)] group-active:shadow-[0_2px_0_rgb(41,37,36)]"
+              >
+                reset
+              </div>
             </button>
           </div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between px-4">
+        <div class="flex gap-2">
+          <div class="h-2 w-2 rounded-full bg-stone-900 shadow-inner"></div>
+          <div class="h-2 w-2 rounded-full bg-stone-900 shadow-inner"></div>
+        </div>
+        <div class="font-mono text-sm text-stone-700">PROPERTY OF WORKSHOP CORP.</div>
+        <div class="flex gap-2">
+          <div class="h-2 w-2 rounded-full bg-stone-900 shadow-inner"></div>
+          <div class="h-2 w-2 rounded-full bg-stone-900 shadow-inner"></div>
         </div>
       </div>
     </div>
@@ -665,52 +686,28 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-h3 {
-  font-weight: bold;
-  font-size: 20px;
-  letter-spacing: 0.25rem;
+.button-3d-stone {
+  box-shadow: 0 4px 0 #292524;
+  transition: all 0.1s ease;
 }
-/* 列表過渡動畫 */
-.list-enter-active,
-.list-leave-active {
-  transition: all 0.4s ease;
+.button-3d-stone:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #292524;
 }
-.list-enter-from,
-.list-leave-to {
-  opacity: 0;
-  transform: translateX(20px);
-}
-
-/* 滑桿美化 */
+/* 滑桿優化 */
 input[type='range'] {
-  height: 4px;
+  height: 6px;
   -webkit-appearance: none;
-  border-radius: 999px;
-  background: #e5e7eb; /* 建議給條柱一個底色 */
-  outline: none;
+  background: #292524;
+  border-radius: 4px;
 }
-
-/* 1. 定義平時的 Thumb 狀態 */
 input[type='range']::-webkit-slider-thumb {
   -webkit-appearance: none;
-  height: 16px;
-  width: 16px;
-  border-radius: 50%;
-  background: #94eb09;
+  height: 18px;
+  width: 18px;
+  border-radius: 4px;
+  background: #f59e0b; /* Amber 500 */
+  border: 2px solid #292524;
   cursor: pointer;
-  transition: all 0.15s ease-in-out;
-}
-/* 2. 定義點擊（Active）時的狀態 */
-input[type='range']:active::-webkit-slider-thumb {
-  box-shadow: 0 0 0 6px rgba(153, 243, 9, 0.2); /* 外環陰影 */
-}
-/* 針對 Firefox 的相容性設定 */
-input[type='range']::-moz-range-thumb {
-  height: 16px;
-  width: 16px;
-  border-radius: 50%;
-  background: #94eb09;
-  border: none;
-  transition: all 0.15s ease-in-out;
 }
 </style>
