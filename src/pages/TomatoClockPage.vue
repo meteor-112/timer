@@ -59,9 +59,9 @@ function openPanel(next: TabKey) {
 <template>
   <div class="bg-background relative flex min-h-screen flex-col overflow-hidden">
     <!-- 標題 -->
-    <header class="relative z-10 px-6 pt-6 pb-2">
+    <header class="md:absolute z-10 px-6 pt-6 pb-2">
       <h1 class="font-display text-xl font-semibold tracking-tight">專注時光</h1>
-      <p class="text-muted-foreground mt-0.5 text-xs">收集聲音碎片，創造屬於你的音樂</p>
+      <p class="text-muted-foreground mt-0.5">收集聲音碎片，創造屬於你的音樂</p>
     </header>
     <!-- 計時器 -->
     <main class="relative z-10 flex flex-1 items-center justify-center px-6">

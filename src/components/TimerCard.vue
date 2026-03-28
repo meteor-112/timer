@@ -1,6 +1,8 @@
+<!-- 計時器 -->
 <script setup lang="ts">
 import { computed, ref, watch, onMounted } from 'vue';
 import WaveBall from '@/components/WaveBall.vue';
+import ActionIconButton from './ActionIconButton.vue';
 import { useTimerStore } from '@/stores/timer';
 import { useAudioEngine } from '@/composables/useAudioEngine';
 import { useFragmentsStore } from '@/stores/fragments';
@@ -187,15 +189,16 @@ async function handleResume() {
 
 <template>
   <div class="relative flex flex-col items-center gap-6">
-    <div class="flex gap-2">
+    <!-- 計時模式切換按鈕 -->
+    <div class="flex gap-4">
       <button
         @click="switchMode('down')"
         :disabled="!canSwitchMode"
         aria-label="切換至倒計時模式"
         :class="[
-          'rounded-full px-4 py-1.5 text-sm font-medium transition-all',
+          'rounded-full px-5 py-2 text-lg font-bold transition-all',
           timer.mode === 'down' ? 'bg-white shadow-sm' : 'bg-gray-300 opacity-60',
-          !canSwitchMode ? 'cursor-not-allowed opacity-40' : 'hover:bg-white/80',
+          !canSwitchMode ? 'cursor-not-allowed opacity-40' : 'cursor-pointer hover:bg-white/80',
         ]"
       >
         倒計時
@@ -205,73 +208,87 @@ async function handleResume() {
         :disabled="!canSwitchMode"
         aria-label="切換至正計時模式"
         :class="[
-          'rounded-full px-4 py-1.5 text-sm font-medium transition-all',
+          'rounded-full px-5 py-2 text-lg font-bold transition-all',
           timer.mode === 'up' ? 'bg-white shadow-sm' : 'bg-gray-300 opacity-60',
-          !canSwitchMode ? 'cursor-not-allowed opacity-40' : 'hover:bg-white/80',
+          !canSwitchMode ? 'cursor-not-allowed opacity-40' : 'cursor-pointer hover:bg-white/80',
         ]"
       >
         正計時
       </button>
     </div>
 
+    <!-- 倒計時之時長調整 -->
     <div
-      class="flex items-center gap-3 transition-opacity duration-300"
+      class="flex items-center gap-4 transition-opacity duration-300"
       :class="{ 'invisible opacity-0': timer.mode !== 'down' }"
     >
-      <button
-        class="glass-panel rounded-full p-1 transition-transform hover:scale-110 disabled:opacity-30"
+      <ActionIconButton
+        :icon="ChevronDown"
+        variant="none"
+        icon-size="md"
+        custom-class="p-2 rounded-full"
+        title="減少五分鐘"
         @click="downMinutes = Math.max(5, downMinutes - 5)"
-        :disabled="timer.status !== 'idle'"
         aria-label="減少五分鐘"
-      >
-        <ChevronDown class="h-4 w-4" />
-      </button>
-      <span class="text-muted-foreground text-sm font-medium" aria-live="polite">{{ downMinutes }}分鐘</span>
-      <button
-        class="glass-panel rounded-full p-1 transition-transform hover:scale-110 disabled:opacity-30"
+      />
+      <span aria-live="polite">{{ downMinutes }} min</span>
+      <ActionIconButton
+        :icon="ChevronUp"
+        variant="none"
+        icon-size="md"
+        custom-class="p-2 rounded-full"
+        title="增加五分鐘"
         @click="downMinutes = Math.min(120, downMinutes + 5)"
-        :disabled="timer.status !== 'idle'"
         aria-label="增加五分鐘"
-      >
-        <ChevronUp class="h-4 w-4" />
-      </button>
+      />
     </div>
-
+    <!-- 聲波球動畫 -->
     <WaveBall :is-running="timer.status === 'running'" />
-
-    <div class="font-display text-foreground text-5xl font-light tracking-widest" aria-live="polite">
+    <!-- 計時時間 -->
+    <div class="text-[60px] font-light tracking-widest" aria-live="polite">
       {{ timer.displayTime }}
     </div>
-
-    <div class="flex items-center gap-4">
-      <button
+    <!-- 計時器按鈕區 -->
+    <div class="flex items-center gap-8">
+      <ActionIconButton
         v-if="timer.status !== 'running'"
+        :icon="Play"
+        variant="none"
+        iconSize="xl"
+        custom-class="p-3 rounded-full"
+        :title="timer.status === 'paused' ? '繼續計時' : '開始計時'"
+        :aria-label="timer.status === 'paused' ? '繼續計時' : '開始計時'"
         @click="
           timer.status === 'paused' ? handleResume() : timer.mode === 'down' ? warmAndStartDown() : warmAndStartUp()
         "
-        class="glass-panel-primary flex h-14 w-14 items-center justify-center rounded-full transition-transform hover:scale-105"
-        :aria-label="timer.status === 'paused' ? '繼續計時' : '開始計時'"
       >
-        <Play class="text-foreground ml-0.5 h-6 w-6" />
-      </button>
-      <button
-        v-else
-        @click="timer.pause()"
-        class="glass-panel-primary flex h-14 w-14 items-center justify-center rounded-full transition-transform hover:scale-105"
-        aria-label="暫停計時"
-      >
-        <Pause class="text-foreground h-6 w-6" />
-      </button>
-      <button
-        v-if="timer.status !== 'idle'"
-        @click="handleResetToInitial"
-        class="glass-panel flex h-10 w-10 items-center justify-center rounded-full transition-transform hover:scale-105"
-        aria-label="重置計時器"
-      >
-        <RotateCcw class="text-muted-foreground h-4 w-4" />
-      </button>
-    </div>
+        <template #default>
+          <span class="sr-only">{{ timer.status === 'paused' ? '繼續' : '開始' }}</span>
+        </template>
+      </ActionIconButton>
 
+      <ActionIconButton
+        v-else
+        :icon="Pause"
+        variant="none"
+        iconSize="xl"
+        custom-class="rounded-full p-3"
+        title="暫停計時"
+        aria-label="暫停計時"
+        @click="timer.pause()"
+      />
+      <ActionIconButton
+        v-if="timer.status !== 'idle'"
+        :icon="RotateCcw"
+        variant="none"
+        iconSize="md"
+        custom-class="p-3 rounded-full"
+        title="重置計時"
+        aria-label="重置計時器"
+        @click="handleResetToInitial"
+      />
+    </div>
+    <!-- 彈跳視窗 -->
     <Teleport to="body">
       <div
         v-if="showCompletionModal"
@@ -280,36 +297,30 @@ async function handleResume() {
         role="dialog"
         aria-modal="true"
       >
-        <div
-          class="glass-panel animate-scale-in mx-4 w-full max-w-sm rounded-2xl p-8 text-center shadow-2xl"
-          @click.stop
-        >
+        <div class="animate-scale-in mx-4 w-full max-w-sm rounded-2xl p-8 text-center shadow-2xl" @click.stop>
           <div v-if="completionStep === 0">
             <h2 class="mb-2 text-xl font-semibold">恭喜！</h2>
             <p class="text-muted-foreground mb-5">您已專注 {{ completionMinutes }} 分鐘！</p>
-            <button @click="nextCompletionStep" class="glass-panel-primary rounded-full px-6 py-2 text-sm font-medium">
+            <button @click="nextCompletionStep" class="rounded-full px-6 py-2 font-medium">
               {{ completionItems.length ? '繼續' : '關閉' }}
             </button>
           </div>
           <div v-else>
             <template v-if="currentCompletionItem">
               <template v-if="currentCompletionItem.kind === 'fragment'">
-                <div class="mb-2 text-sm font-medium text-slate-500/80">獲得碎片</div>
+                <div class="mb-2 font-medium text-slate-500/80">獲得碎片</div>
                 <div class="text-foreground mb-5 text-2xl font-semibold">
                   {{ fragments.getFragmentLabel(currentCompletionItem.fragmentId) }}
                 </div>
               </template>
               <template v-else>
-                <div class="mb-2 text-sm font-medium text-slate-500/80">解鎖成功</div>
+                <div class="mb-2 font-medium text-slate-500/80">解鎖成功</div>
                 <div class="text-foreground mb-1 text-2xl font-semibold">
                   已解鎖「{{ fragments.getFragmentLabel(currentCompletionItem.fragmentId) }}」唱片
                 </div>
-                <div class="text-muted-foreground mb-5 text-sm">完整音軌已可播放</div>
+                <div class="text-muted-foreground mb-5">完整音軌已可播放</div>
               </template>
-              <button
-                @click="nextCompletionStep"
-                class="glass-panel-primary rounded-full px-6 py-2 text-sm font-medium"
-              >
+              <button @click="nextCompletionStep" class="rounded-full px-6 py-2 font-medium">
                 {{ completionStep < completionItems.length ? '繼續' : '關閉' }}
               </button>
             </template>

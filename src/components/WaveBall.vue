@@ -1,7 +1,4 @@
-<template>
-  <canvas ref="canvasRef" :style="{ width: `${size}px`, height: `${size}px` }" class="animate-float" />
-</template>
-
+<!-- 聲波球 -->
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, computed } from 'vue';
 
@@ -12,7 +9,7 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   isRunning: false,
-  size: 220,
+  size: 320,
 });
 
 const canvasRef = ref<HTMLCanvasElement | null>(null);
@@ -139,6 +136,10 @@ onUnmounted(() => {
  * 但如果 size 改變，Canvas 需要重新繪製，這由 requestAnimationFrame 自動處理。
  */
 </script>
+
+<template>
+  <canvas ref="canvasRef" :style="{ width: `${size}px`, height: `${size}px` }" class="animate-float" />
+</template>
 
 <style scoped>
 /* 這裡可以放置原本 CSS 中的 animate-float 定義，若全局已定義則免 */

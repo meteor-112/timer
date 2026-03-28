@@ -3,6 +3,7 @@
 import { computed, onUnmounted, ref } from 'vue';
 import PlayStopButton from './PlayStopButton.vue';
 import ActionIconButton from './ActionIconButton.vue';
+import { MySwal } from '@/composables/useAlert';
 import { FRAGMENT_TYPES, getFragmentById } from '@/data/audioCatalog';
 import { useFragmentsStore } from '@/stores/fragments';
 import { useMusicStore, type MusicRecord, type MusicTrackMix } from '@/stores/music';
@@ -84,8 +85,17 @@ function removeTrack(idx: number) {
 }
 
 // 刪除確認
-const confirmDelete = (id: string) => {
-  if (window.confirm('確定要永久刪除這張唱片嗎？')) {
+const confirmDelete = async (id: string) => {
+  const result = await MySwal.fire({
+    title: '確定要刪除？',
+    text: '刪除後將無法還原此數據',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: '確定刪除',
+    cancelButtonText: '取消',
+  });
+
+  if (result.isConfirmed) {
     music.removeRecord(id);
   }
 };
@@ -509,33 +519,34 @@ onUnmounted(() => {
                   :icon="music.pinnedId === r.id ? PinOff : Pin"
                   :variant="music.pinnedId === r.id ? 'emerald' : 'stone'"
                   :title="music.pinnedId === r.id ? '取消置頂' : '置頂'"
-                  class="button-3d-stone border-2 border-stone-800 bg-stone-200"
+                  class="button-3d-stone"
                   @click="music.setPinned(music.pinnedId === r.id ? null : r.id)"
                 />
                 <ActionIconButton
                   :icon="SquarePen"
                   title="修改名稱"
                   variant="stone"
-                  class="button-3d-stone border-2 border-stone-800 bg-stone-200"
+                  class="button-3d-stone"
                   @click="beginRename(r)"
                 />
                 <ActionIconButton
                   :icon="Share2"
                   title="分享"
                   variant="stone"
-                  class="button-3d-stone border-2 border-stone-800 bg-stone-200"
+                  class="button-3d-stone"
                   @click="startShare(r.id)"
                 />
                 <ActionIconButton
                   :icon="Trash2"
                   title="刪除"
                   variant="red"
-                  class="button-3d-stone border-2 border-stone-800 bg-stone-200"
+                  class="button-3d-stone"
                   @click="confirmDelete(r.id)"
                 />
               </div>
             </div>
 
+            <!-- 改名 -->
             <div
               v-if="editTargetId === r.id"
               class="absolute inset-x-2 top-4 z-30 bg-amber-100 px-4 pt-4 pb-2 shadow-md ring-1 shadow-gray-400 ring-amber-200/50"
@@ -687,8 +698,11 @@ onUnmounted(() => {
 
 <style scoped>
 .button-3d-stone {
+  border: 2px solid var(--color-stone-800);
+  background-color: #e7e5e4;
   box-shadow: 0 4px 0 #292524;
   transition: all 0.1s ease;
+  padding: 3px 0;
 }
 .button-3d-stone:active {
   transform: translateY(2px);
