@@ -110,46 +110,58 @@ export const useTimerStore = defineStore('timer', () => {
   }
 
   /**
+   * 單次時間軸更新：里程碑與倒數結束須在同一 tick 內先完成碎片寫入，再設為 ended，
+   * 否則 UI watch 會在 collectRandomFragment 完成前就讀到空的 sessionRewards。
+   */
+  async function tickOnce() {
+    tickNowMs.value = Date.now();
+
+    const elapsed = elapsedMs.value;
+
+    const elapsedForMilestone = elapsed;
+    const maxSegments =
+      mode.value === 'down' && totalDurationMs.value != null
+        ? Math.floor(totalDurationMs.value / INTERVAL_MS)
+        : Number.MAX_SAFE_INTEGER;
+    const desiredSegmentIndex = clamp(Math.floor(elapsedForMilestone / INTERVAL_MS), 0, maxSegments);
+
+    const milestonePromises: Promise<unknown>[] = [];
+    while (segmentIndex.value < desiredSegmentIndex) {
+      const milestoneIdx = segmentIndex.value;
+      segmentIndex.value++;
+      milestonePromises.push(
+        triggerMilestone(milestoneIdx).catch(() => {
+          // ignore audio failures
+        }),
+      );
+    }
+
+    const shouldEnd = mode.value === 'down' && totalDurationMs.value != null && elapsed >= totalDurationMs.value;
+
+    if (shouldEnd) {
+      await Promise.all(milestonePromises);
+      status.value = 'ended';
+      clearTicker();
+      if (elapsed >= INTERVAL_MS) {
+        const audio = useAudioEngine();
+        void audio.playReminder(segmentIndex.value).catch(() => {
+          // ignore
+        });
+      }
+      return;
+    }
+
+    void Promise.all(milestonePromises);
+  }
+
+  /**
    * 啟動計時迴圈
    */
   function startTicker() {
     clearTicker();
     tickNowMs.value = Date.now();
     intervalHandle = window.setInterval(() => {
-      tickNowMs.value = Date.now();
-
-      const elapsed = elapsedMs.value;
-
-      // 里程碑補齊判斷：若因背景運行導致時間跳躍，會自動補足應得的里程碑
-      const elapsedForMilestone = elapsed;
-      const maxSegments =
-        mode.value === 'down' && totalDurationMs.value != null
-          ? Math.floor(totalDurationMs.value / INTERVAL_MS)
-          : Number.MAX_SAFE_INTEGER;
-      const desiredSegmentIndex = clamp(Math.floor(elapsedForMilestone / INTERVAL_MS), 0, maxSegments);
-
-      // 檢查是否進入新的週期
-      while (segmentIndex.value < desiredSegmentIndex) {
-        const milestoneIdx = segmentIndex.value;
-        segmentIndex.value++;
-        // 異步觸發，不阻塞主計時迴圈
-        void triggerMilestone(milestoneIdx).catch(() => {
-          // ignore audio failures
-        });
-      }
-
-      // 倒數結束判定
-      if (mode.value === 'down' && totalDurationMs.value != null && elapsed >= totalDurationMs.value) {
-        status.value = 'ended';
-        clearTicker();
-        // 結束時若累積超過一個週期，播放最後提示音
-        if (elapsed >= INTERVAL_MS) {
-          const audio = useAudioEngine();
-          void audio.playReminder(segmentIndex.value).catch(() => {
-            // ignore
-          });
-        }
-      }
+      void tickOnce();
     }, TICK_MS);
   }
 
