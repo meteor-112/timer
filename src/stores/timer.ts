@@ -1,43 +1,51 @@
+// 計時功能(特效與獎勵提供)
 import { computed, ref } from 'vue';
 import { defineStore } from 'pinia';
 import { FOCUS_INTERVAL_MINUTES } from '@/data/audioCatalog';
 import { useFragmentsStore } from '@/stores/fragments';
 import { useAudioEngine } from '@/composables/useAudioEngine';
 
-type TimerMode = 'up' | 'down';
-type TimerStatus = 'idle' | 'running' | 'paused' | 'ended';
+// --- 型別與常數定義 ---
+type TimerMode = 'up' | 'down'; // up: 正數計時, down: 倒數計時
+type TimerStatus = 'idle' | 'running' | 'paused' | 'ended'; // 計時器狀態
 
+// 週期長度（毫秒），通常為 25 分鐘
 const INTERVAL_MS = FOCUS_INTERVAL_MINUTES * 60 * 1000;
+// UI 更新頻率：每 250ms 更新一次，確保秒數跳動視覺流暢
 const TICK_MS = 250;
 
+/**
+ * 數值限制輔助函式
+ */
 function clamp(n: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, n));
 }
 
 export const useTimerStore = defineStore('timer', () => {
+  // --- 響應式狀態 (State) ---
   const mode = ref<TimerMode>('up');
   const status = ref<TimerStatus>('idle');
 
-  const totalDurationMs = ref<number | null>(null);
-  const startedAtMs = ref<number | null>(null);
-  const elapsedBeforeMs = ref(0);
+  const totalDurationMs = ref<number | null>(null); // 目標總時長 (僅倒數模式)
+  const startedAtMs = ref<number | null>(null); // 本次開始/恢復計時的時間點
+  const elapsedBeforeMs = ref(0); // 累計已過去的時間 (排除當前執行段)
   const segmentIndex = ref(0); // 已觸發了第幾個 25 分片段（0 表示尚未觸發）
+
+  // 當前會話獲取的獎勵列表（用於結算畫面）
   const sessionRewards = ref<Array<{ fragmentId: string; unlocked: boolean; collectedAt: number }>>([]);
 
+  // 當前系統時間快照，由 Ticker 持續更新，帶動所有 Computed 計算
   const tickNowMs = ref(Date.now());
 
   let intervalHandle: number | null = null;
   let backgroundTimeoutHandle: number | null = null;
 
-  function stopBackgroundPlayback() {
-    if (backgroundTimeoutHandle != null) {
-      window.clearTimeout(backgroundTimeoutHandle);
-      backgroundTimeoutHandle = null;
-    }
-  }
+  // --- 計算屬性 (Getters) ---
 
-  // 計算累積時間：只要 startedAtMs 存在，就用 tickNowMs 估算，
-  // 讓倒數「ended」狀態也能正確結算（避免 elapsedMs 變 0）。
+  /**
+   * 核心計算：當前總共流逝的毫秒數
+   * 邏輯：之前的累積時間 + (現在時間 - 本段開始時間)
+   */
   const elapsedMs = computed(() => {
     if (startedAtMs.value != null) {
       return elapsedBeforeMs.value + (tickNowMs.value - startedAtMs.value);
@@ -45,16 +53,26 @@ export const useTimerStore = defineStore('timer', () => {
     return elapsedBeforeMs.value;
   });
 
+  /**
+   * 倒數模式下的剩餘時間
+   */
   const remainingMs = computed(() => {
     if (mode.value !== 'down' || totalDurationMs.value == null) return 0;
     return clamp(totalDurationMs.value - elapsedMs.value, 0, totalDurationMs.value);
   });
 
+  /**
+   * 週期進度 (0 到 1 之間)
+   * 用於環狀進度條或 GSAP 動畫同步，呈現目前在 25 分鐘內的百分比
+   */
   const cycleProgress01 = computed(() => {
     const e = elapsedMs.value;
     return (((e % INTERVAL_MS) + INTERVAL_MS) % INTERVAL_MS) / INTERVAL_MS;
   });
 
+  /**
+   * 距離下一個「里程碑 (25 min)」還剩多少時間
+   */
   const nextMilestoneInMs = computed(() => {
     if (status.value !== 'running') return null;
     const nextElapsedAt = (segmentIndex.value + 1) * INTERVAL_MS;
@@ -63,22 +81,37 @@ export const useTimerStore = defineStore('timer', () => {
 
   const triggeredCount = computed(() => segmentIndex.value);
 
+  // --- 內部輔助操作 ---
+
   function clearTicker() {
     if (intervalHandle != null) {
       window.clearInterval(intervalHandle);
       intervalHandle = null;
     }
   }
+  function stopBackgroundPlayback() {
+    if (backgroundTimeoutHandle != null) {
+      window.clearTimeout(backgroundTimeoutHandle);
+      backgroundTimeoutHandle = null;
+    }
+  }
 
+  /**
+   * 觸發里程碑獎勵
+   * 包含播放提示音與獲取隨機音訊碎片
+   */
   async function triggerMilestone(milestoneIdx: number) {
     // 25 分鐘提醒 + 隨機音碎片
     const audio = useAudioEngine();
     const fragments = useFragmentsStore();
-    await audio.playReminder(milestoneIdx);//播放 25 分鐘提醒音
-    const res = await fragments.collectRandomFragment();//靜默獲取隨機碎片
-    sessionRewards.value.push({ ...res, collectedAt: Date.now() });//紀錄到 session，供結算 Modal 顯示
+    await audio.playReminder(milestoneIdx); //播放 25 分鐘提醒音
+    const res = await fragments.collectRandomFragment(); //靜默獲取隨機碎片
+    sessionRewards.value.push({ ...res, collectedAt: Date.now() }); //紀錄到 session，供結算 Modal 顯示
   }
 
+  /**
+   * 啟動計時迴圈
+   */
   function startTicker() {
     clearTicker();
     tickNowMs.value = Date.now();
@@ -87,7 +120,7 @@ export const useTimerStore = defineStore('timer', () => {
 
       const elapsed = elapsedMs.value;
 
-      // milestone 判斷：用「已過幾個週期」來一次補齊（背景切換也不會漏）
+      // 里程碑補齊判斷：若因背景運行導致時間跳躍，會自動補足應得的里程碑
       const elapsedForMilestone = elapsed;
       const maxSegments =
         mode.value === 'down' && totalDurationMs.value != null
@@ -95,20 +128,21 @@ export const useTimerStore = defineStore('timer', () => {
           : Number.MAX_SAFE_INTEGER;
       const desiredSegmentIndex = clamp(Math.floor(elapsedForMilestone / INTERVAL_MS), 0, maxSegments);
 
-      // 每段只觸發一次
+      // 檢查是否進入新的週期
       while (segmentIndex.value < desiredSegmentIndex) {
         const milestoneIdx = segmentIndex.value;
         segmentIndex.value++;
-        // 不在 tick loop 內 await，避免卡 UI；milestone 會連續觸發時各自排程
+        // 異步觸發，不阻塞主計時迴圈
         void triggerMilestone(milestoneIdx).catch(() => {
           // ignore audio failures
         });
       }
 
-      // countdown 結束（放在里程碑觸發之後，確保邊界週期也會產生碎片/提醒）
+      // 倒數結束判定
       if (mode.value === 'down' && totalDurationMs.value != null && elapsed >= totalDurationMs.value) {
         status.value = 'ended';
         clearTicker();
+        // 結束時若累積超過一個週期，播放最後提示音
         if (elapsed >= INTERVAL_MS) {
           const audio = useAudioEngine();
           void audio.playReminder(segmentIndex.value).catch(() => {
@@ -119,6 +153,9 @@ export const useTimerStore = defineStore('timer', () => {
     }, TICK_MS);
   }
 
+  // --- 公開操作 (Actions) ---
+
+  /** 啟動正數計時模式 */
   function startUp(): void {
     mode.value = 'up';
     status.value = 'running';
@@ -129,7 +166,7 @@ export const useTimerStore = defineStore('timer', () => {
     sessionRewards.value = [];
     startTicker();
   }
-
+  /** 啟動倒數計時模式 */
   function startDown(durationMinutes: number): void {
     mode.value = 'down';
     status.value = 'running';
