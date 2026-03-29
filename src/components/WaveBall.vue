@@ -62,7 +62,7 @@ const draw = () => {
   ctx.stroke();
 
   const highlight = ctx.createRadialGradient(cx - r * 0.35, cy - r * 0.35, 0, cx - r * 0.35, cy - r * 0.35, r * 0.5);
-  highlight.addColorStop(0, 'hsla(0, 0%, 100%, 0.45)');
+  highlight.addColorStop(0, 'hsla(0, 0%, 100%, 0.6)');
   highlight.addColorStop(1, 'hsla(0, 0%, 100%, 0)');
   ctx.fillStyle = highlight;
   ctx.beginPath();
@@ -71,8 +71,8 @@ const draw = () => {
 
   // 3. 內層填充 (Inner fill)
   const innerGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
-  innerGrad.addColorStop(0, 'hsla(160, 12%, 65%, 0.08)');
-  innerGrad.addColorStop(1, 'hsla(160, 12%, 65%, 0.02)');
+  innerGrad.addColorStop(0, 'hsla(160, 12%, 100%, 0.3)');
+  innerGrad.addColorStop(1, 'hsla(160, 12%, 100%, 0.4)');
   ctx.fillStyle = innerGrad;
   ctx.beginPath();
   ctx.arc(cx, cy, r, 0, Math.PI * 2);
@@ -111,7 +111,7 @@ const draw = () => {
     ctx.lineTo(cx + r, cy + r + 10);
     ctx.lineTo(cx - r, cy + r + 10);
     ctx.closePath();
-    ctx.fillStyle = `hsla(160, 12%, 65%, ${alpha})`;
+    ctx.fillStyle = `hsla(86, 88%, 56%, ${alpha})`;
     ctx.fill();
   }
   ctx.restore();

@@ -57,7 +57,7 @@ function openPanel(next: TabKey) {
 </script>
 
 <template>
-  <div class="bg-background relative flex min-h-screen flex-col overflow-hidden">
+  <div class="bg-[#E0E1DD] relative flex min-h-screen flex-col overflow-hidden">
     <!-- 標題 -->
     <header class="md:absolute z-10 px-6 pt-6 pb-2">
       <h1 class="font-display text-xl font-semibold tracking-tight">專注時光</h1>
