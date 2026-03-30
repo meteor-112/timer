@@ -12,7 +12,7 @@ import { useFragmentsStore } from '@/stores/fragments';
 import { CassetteTape, Sparkles, Music, Globe, X, Info } from 'lucide-vue-next';
 
 // 定義面板切換的型別，確保 tab.value
-type TabKey = 'fragments' | 'music' | 'world';
+type TabKey = 'fragments' | 'music' | 'world' | 'info';
 
 // --- 響應式狀態 (State) ---
 const tab = ref<TabKey>('fragments'); // 當前激活的面板分頁
@@ -156,6 +156,16 @@ function togglePlayer() {
       >
         <Globe class="h-5 w-5 md:h-8 md:w-8" />
       </button>
+
+      <button
+        type="button"
+        @click="openPanel('info')"
+        class="focus:ring-highlight flex h-12 w-12 cursor-pointer items-center justify-center rounded-2xl border-2 transition-transform hover:scale-110 md:h-20 md:w-20"
+        title="資訊"
+        aria-label="打開資訊頁"
+      >
+        <Info class="h-5 w-5 md:h-8 md:w-8" />
+      </button>
     </div>
 
     <!-- 右側面板 -->
@@ -172,7 +182,9 @@ function togglePlayer() {
             <!-- 面板標題與關閉鈕 -->
             <section class="border-theme flex items-center justify-between gap-3 border-b px-5 py-1.5">
               <h2>
-                {{ tab === 'fragments' ? '聲音碎片' : tab === 'music' ? '音樂工坊' : '世界房間' }}
+                {{
+                  tab === 'fragments' ? '聲音碎片' : tab === 'music' ? '音樂工坊' : tab === 'world' ? '世界' : '資訊'
+                }}
               </h2>
               <button type="button" class="cursor-pointer" aria-label="關閉面板" @click="drawerOpen = false">
                 <X class="hover:bg-theme/40" />
@@ -182,7 +194,8 @@ function togglePlayer() {
             <div class="h-[calc(100%-48px)] overflow-y-auto">
               <FragmentsPanel v-if="tab === 'fragments'" />
               <MusicStudioPanel v-else-if="tab === 'music'" />
-              <WorldRoomPanel v-else />
+              <WorldRoomPanel v-else-if="tab === 'world'" />
+              <InfoPage v-else />
             </div>
           </div>
         </div>
