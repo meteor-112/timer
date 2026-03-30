@@ -1,6 +1,6 @@
 <!-- 計時器 -->
 <script setup lang="ts">
-import { computed, ref, watch, onMounted } from 'vue';
+import { computed, ref, watch, onMounted, onUnmounted } from 'vue';
 import WaveBall from '@/components/WaveBall.vue';
 import ActionIconButton from './ActionIconButton.vue';
 import { useTimerStore } from '@/stores/timer';
@@ -10,6 +10,7 @@ import { ChevronDown, ChevronUp, Play, Pause, RotateCcw } from 'lucide-vue-next'
 import { FOCUS_INTERVAL_MINUTES, getFragmentById } from '@/data/audioCatalog';
 import { runTimerCompletionAlerts, type TimerCompletionItem } from '@/composables/useAlert';
 
+const ballSize = ref(320);
 const timer = useTimerStore();
 const downMinutes = ref(25);
 const audio = useAudioEngine();
@@ -98,8 +99,18 @@ async function handleResetToInitial() {
   if (timer.mode === 'down') timer.totalDurationMs = downMinutes.value * 60 * 1000;
 }
 
+const checkScreen = () => {
+  ballSize.value = window.innerWidth < 768 ? 160 : 320;
+};
+
 onMounted(() => {
   switchMode('down');
+  checkScreen();
+  window.addEventListener('resize', checkScreen);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('resize', checkScreen);
 });
 
 watch(
@@ -127,29 +138,35 @@ async function handleResume() {
 </script>
 
 <template>
-  <div class="relative flex flex-col items-center gap-6">
+  <div class="relative flex flex-col items-center">
     <!-- 計時模式切換按鈕 -->
-    <div class="flex gap-4">
+    <div class="relative mb-3 flex w-fit items-center rounded-full bg-gray-300 p-1">
+      <div
+        class="absolute h-[calc(100%-8px)] w-[calc(50%-4px)] rounded-full bg-white shadow-sm transition-transform duration-300 ease-in-out"
+        :class="timer.mode === 'up' ? 'translate-x-full' : 'translate-x-0'"
+      ></div>
+
       <button
         @click="switchMode('down')"
         :disabled="!canSwitchMode"
         aria-label="切換至倒計時模式"
+        class="relative z-10 rounded-full px-6 py-1.5 font-bold transition-colors md:px-8 md:py-2 md:text-lg"
         :class="[
-          'rounded-full px-5 py-2 text-lg font-bold transition-all',
-          timer.mode === 'down' ? 'bg-white shadow-sm' : 'bg-gray-300 opacity-60',
-          !canSwitchMode ? 'cursor-not-allowed opacity-40' : 'cursor-pointer hover:bg-white/80',
+          timer.mode === 'down' ? 'text-gray-900' : 'text-gray-500 hover:text-gray-700',
+          !canSwitchMode ? 'cursor-not-allowed opacity-40' : 'cursor-pointer',
         ]"
       >
         倒計時
       </button>
+
       <button
         @click="switchMode('up')"
         :disabled="!canSwitchMode"
         aria-label="切換至正計時模式"
+        class="relative z-10 rounded-full px-6 py-1.5 font-bold transition-colors md:px-8 md:py-2 md:text-lg"
         :class="[
-          'rounded-full px-5 py-2 text-lg font-bold transition-all',
-          timer.mode === 'up' ? 'bg-white shadow-sm' : 'bg-gray-300 opacity-60',
-          !canSwitchMode ? 'cursor-not-allowed opacity-40' : 'cursor-pointer hover:bg-white/80',
+          timer.mode === 'up' ? 'text-gray-900' : 'text-gray-500 hover:text-gray-700',
+          !canSwitchMode ? 'cursor-not-allowed opacity-40' : 'cursor-pointer',
         ]"
       >
         正計時
@@ -158,37 +175,44 @@ async function handleResume() {
 
     <!-- 倒計時之時長調整 -->
     <div
-      class="flex items-center gap-4 transition-opacity duration-300"
-      :class="{ 'invisible opacity-0': timer.mode !== 'down' }"
+      class="mb-2 flex items-center gap-4 font-mono text-lg transition-all duration-300 md:mb-6"
+      :class="[
+        timer.mode !== 'down' ? 'invisible opacity-0' : 'visible opacity-100',
+        !canSwitchMode ? 'opacity-50 grayscale-[0.5]' : '',
+      ]"
     >
       <ActionIconButton
         :icon="ChevronDown"
         variant="none"
         icon-size="md"
         custom-class="p-2 rounded-full"
+        :disabled="!canSwitchMode"
         title="減少五分鐘"
-        @click="downMinutes = Math.max(5, downMinutes - 5)"
+        @click="canSwitchMode && (downMinutes = Math.max(5, downMinutes - 5))"
         aria-label="減少五分鐘"
       />
-      <span aria-live="polite">{{ downMinutes }} min</span>
+
+      <span :class="{ 'text-gray-400': !canSwitchMode }" aria-live="polite"> {{ downMinutes }} min </span>
+
       <ActionIconButton
         :icon="ChevronUp"
         variant="none"
         icon-size="md"
         custom-class="p-2 rounded-full"
+        :disabled="!canSwitchMode"
         title="增加五分鐘"
-        @click="downMinutes = Math.min(120, downMinutes + 5)"
+        @click="canSwitchMode && (downMinutes = Math.min(120, downMinutes + 5))"
         aria-label="增加五分鐘"
       />
     </div>
     <!-- 聲波球動畫 -->
-    <WaveBall :is-running="timer.status === 'running'" />
+    <WaveBall :size="ballSize" :is-running="timer.status === 'running'" />
     <!-- 計時時間 -->
-    <div class="text-[60px] font-light tracking-widest" aria-live="polite">
+    <div class="mt-3 text-5xl font-light tracking-widest md:mt-6 md:text-[60px]" aria-live="polite">
       {{ timer.displayTime }}
     </div>
     <!-- 計時器按鈕區 -->
-    <div class="flex items-center gap-8">
+    <div class="mt-4 flex items-center gap-3 md:mt-8 md:gap-8">
       <ActionIconButton
         v-if="timer.status !== 'running'"
         :icon="Play"

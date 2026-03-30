@@ -1,6 +1,6 @@
 <!-- 聲波球 -->
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch, computed } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
 
 interface Props {
   isRunning: boolean;
@@ -138,7 +138,14 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <canvas ref="canvasRef" :style="{ width: `${size}px`, height: `${size}px` }" class="animate-float" />
+  <canvas
+    ref="canvasRef"
+    :style="{
+      width: `${canvasSize}px`,
+      height: `${canvasSize}px`,
+    }"
+    class="animate-float"
+  />
 </template>
 
 <style scoped>

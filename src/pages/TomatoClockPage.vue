@@ -3,12 +3,13 @@ import { ref, watch } from 'vue';
 import TimerCard from '@/components/TimerCard.vue';
 import FragmentsPanel from '@/components/FragmentsPanel.vue';
 import MusicStudioPanel from '@/components/MusicStudioPanel.vue';
+import InfoPage from '@/components/InfoPage.vue';
 import WorldRoomPanel from '@/components/WorldRoomPanel.vue';
 import PlayerBar from '@/components/PlayerBar.vue';
 import { useFragmentsStore } from '@/stores/fragments';
 
 // 圖標組件引入
-import { Sparkles, Music, Globe, X } from 'lucide-vue-next';
+import { CassetteTape, Sparkles, Music, Globe, X, Info } from 'lucide-vue-next';
 
 // 定義面板切換的型別，確保 tab.value
 type TabKey = 'fragments' | 'music' | 'world';
@@ -16,6 +17,7 @@ type TabKey = 'fragments' | 'music' | 'world';
 // --- 響應式狀態 (State) ---
 const tab = ref<TabKey>('fragments'); // 當前激活的面板分頁
 const drawerOpen = ref(false); // 控制側邊抽屜的顯示狀態
+const isPlayerOpen = ref(false); //控制手機版 PlayerBar 顯示
 const fragments = useFragmentsStore(); // 引入 Pinia Store 管理碎片狀態
 
 /** * Toast 通知狀態
@@ -54,12 +56,17 @@ function openPanel(next: TabKey) {
   tab.value = next;
   drawerOpen.value = true;
 }
+
+//切換手機版播放器顯示
+function togglePlayer() {
+  isPlayerOpen.value = !isPlayerOpen.value;
+}
 </script>
 
 <template>
-  <div class="bg-[#E0E1DD] relative flex min-h-screen flex-col overflow-hidden">
+  <div class="relative flex min-h-screen flex-col overflow-hidden bg-[#E0E1DD]">
     <!-- 標題 -->
-    <header class="md:absolute z-10 px-6 pt-6 pb-2">
+    <header class="z-10 px-6 pt-6 pb-2 md:absolute">
       <h1 class="font-display text-xl font-semibold tracking-tight">專注時光</h1>
       <p class="text-muted-foreground mt-0.5">收集聲音碎片，創造屬於你的音樂</p>
     </header>
@@ -67,41 +74,87 @@ function openPanel(next: TabKey) {
     <main class="relative z-10 flex flex-1 items-center justify-center px-6">
       <TimerCard />
     </main>
-    <!-- 播放器 -->
-    <div class="fixed bottom-6 left-6 z-40">
+    <!-- 播放器(電腦) -->
+    <button
+      type="button"
+      @click="isPlayerOpen = true"
+      class="fixed bottom-6 left-6 z-40 flex h-12 w-12 cursor-pointer items-center justify-center rounded-2xl border-2 border-slate-700 bg-slate-800 text-white shadow-lg transition-all active:scale-95 lg:hidden"
+      :class="{ 'pointer-events-none opacity-0': isPlayerOpen }"
+    >
+      <Music class="h-6 w-6" />
+    </button>
+
+    <div class="fixed bottom-6 left-6 z-40 hidden lg:flex">
       <PlayerBar />
     </div>
+
+    <Teleport to="body">
+      <Transition
+        enter-active-class="transition duration-300 ease-out"
+        enter-from-class="opacity-0"
+        enter-to-class="opacity-100"
+        leave-active-class="transition duration-200 ease-in"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
+      >
+        <div
+          v-if="isPlayerOpen"
+          @click="isPlayerOpen = false"
+          class="fixed inset-0 z-50 bg-black/20 backdrop-blur-sm lg:hidden"
+        />
+      </Transition>
+
+      <Transition
+        enter-active-class="transition duration-300 ease-out"
+        enter-from-class="opacity-0 -translate-x-full"
+        enter-to-class="opacity-100 translate-x-0"
+        leave-active-class="transition duration-200 ease-in"
+        leave-from-class="opacity-100 translate-x-0"
+        leave-to-class="opacity-0 -translate-x-full"
+      >
+        <div v-if="isPlayerOpen" class="fixed bottom-6 left-6 z-50 flex flex-col gap-2 lg:hidden">
+          <button
+            @click="isPlayerOpen = false"
+            class="self-end rounded-full bg-slate-800/50 p-1.5 text-slate-300 active:bg-slate-800"
+          >
+            <X class="h-5 w-5" />
+          </button>
+
+          <PlayerBar />
+        </div>
+      </Transition>
+    </Teleport>
 
     <!-- 功能面板 -->
     <div class="fixed top-1/2 right-4 z-40 flex -translate-y-1/2 flex-col gap-3" role="group" aria-label="功能選單">
       <button
         type="button"
         @click="openPanel('fragments')"
-        class="focus:ring-highlight flex h-12 w-12 cursor-pointer items-center justify-center rounded-2xl border-2 transition-transform hover:scale-110"
+        class="focus:ring-highlight flex h-12 w-12 cursor-pointer items-center justify-center rounded-2xl border-2 transition-transform hover:scale-110 md:h-20 md:w-20"
         title="聲音碎片"
         aria-label="開啟聲音碎片面板"
       >
-        <Sparkles class="h-5 w-5" />
+        <Sparkles class="h-5 w-5 md:h-8 md:w-8" />
       </button>
 
       <button
         type="button"
         @click="openPanel('music')"
-        class="focus:ring-highlight flex h-12 w-12 cursor-pointer items-center justify-center rounded-2xl border-2 transition-transform hover:scale-110"
+        class="focus:ring-highlight flex h-12 w-12 cursor-pointer items-center justify-center rounded-2xl border-2 transition-transform hover:scale-110 md:h-20 md:w-20"
         title="音樂工坊"
         aria-label="開啟音樂工坊"
       >
-        <Music class="h-5 w-5" />
+        <CassetteTape class="h-5 w-5 md:h-8 md:w-8" />
       </button>
 
       <button
         type="button"
         @click="openPanel('world')"
-        class="focus:ring-highlight flex h-12 w-12 cursor-pointer items-center justify-center rounded-2xl border-2 transition-transform hover:scale-110"
+        class="focus:ring-highlight flex h-12 w-12 cursor-pointer items-center justify-center rounded-2xl border-2 transition-transform hover:scale-110 md:h-20 md:w-20"
         title="世界房間 "
         aria-label="進入世界房間"
       >
-        <Globe class="h-5 w-5" />
+        <Globe class="h-5 w-5 md:h-8 md:w-8" />
       </button>
     </div>
 

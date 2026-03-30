@@ -1,13 +1,23 @@
 <script setup lang="ts">
-import { computed, onUnmounted, ref } from 'vue';
-import { Play, Square } from 'lucide-vue-next';
+import { ref, computed, onUnmounted, watch } from 'vue';
+import { Play, Square, ChevronDown } from 'lucide-vue-next';
+import PlayStopButton from './PlayStopButton.vue';
 import { FRAGMENT_TYPES, getFragmentById } from '@/data/audioCatalog';
 import { useFragmentsStore } from '@/stores/fragments';
 import { useMusicStore } from '@/stores/music';
 import { useBackgroundStore } from '@/stores/background';
 
+interface Props {
+  size?: number;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  size: 320,
+});
+
 const fragments = useFragmentsStore();
 const music = useMusicStore();
+const background = useBackgroundStore();
 
 type SelectionKind = 'note' | 'record';
 
@@ -15,18 +25,22 @@ const kind = ref<SelectionKind>('note');
 const selectedNoteId = ref<string>('');
 const selectedRecordId = ref<string>('');
 
+// 計算已獲取的音效清單
 const acquiredNotes = computed(() => FRAGMENT_TYPES.filter((f) => fragments.getCount(f.id) > 0));
 
-const selectedLabel = computed(() => {
-  if (kind.value === 'note') return fragments.getFragmentLabel(selectedNoteId.value);
+// 當前選中的標籤名稱
+const selectedLabel = computed((): string => {
+  if (kind.value === 'note') {
+    return fragments.getFragmentLabel(selectedNoteId.value) || '未選擇音效';
+  }
   const rec = music.getRecordById(selectedRecordId.value);
-  return rec?.name ?? '唱片';
+  return rec?.name ?? '未選擇唱片';
 });
 
-const background = useBackgroundStore();
+// 綁定背景播放狀態
 const isPlaying = computed({
   get: () => background.isActive,
-  set: (val) => {
+  set: (val: boolean) => {
     background.isActive = val;
   },
 });
@@ -34,9 +48,12 @@ const isPlaying = computed({
 let audioEl: HTMLAudioElement | null = null;
 let recordLoopHandle: number | null = null;
 
-function stop() {
+/**
+ * 停止播放並清理資源
+ */
+function stop(): void {
   isPlaying.value = false;
-  if (recordLoopHandle != null) {
+  if (recordLoopHandle !== null) {
     window.clearTimeout(recordLoopHandle);
     recordLoopHandle = null;
   }
@@ -44,14 +61,17 @@ function stop() {
     try {
       audioEl.pause();
       audioEl.currentTime = 0;
-    } catch {
-      // ignore
+    } catch (e) {
+      console.error('Stop audio error:', e);
     }
     audioEl = null;
   }
 }
 
-async function startLoop() {
+/**
+ * 開始循環播放邏輯
+ */
+async function startLoop(): Promise<void> {
   stop();
 
   if (kind.value === 'note') {
@@ -64,16 +84,18 @@ async function startLoop() {
     audioEl.loop = true;
     audioEl.volume = 0.95;
     isPlaying.value = true;
-    void audioEl.play().catch(() => {
+    try {
+      await audioEl.play();
+    } catch {
       stop();
-    });
+    }
     return;
   }
 
   const recordId = selectedRecordId.value;
   if (!recordId) return;
 
-  // 優先用 mp3 來 loop
+  // 優先嘗試使用 MP3 進行循環播放
   const ok = await music.ensureRecordMp3(recordId).catch(() => false);
   if (ok) {
     const url = await music.getRecordMp3ObjectUrl(recordId);
@@ -82,20 +104,20 @@ async function startLoop() {
       audioEl.loop = true;
       audioEl.volume = 0.95;
       isPlaying.value = true;
-      void audioEl.play().catch(() => {
+      try {
+        await audioEl.play();
+      } catch {
         stop();
-      });
+      }
       return;
     }
   }
 
-  // fallback：用 30 秒一次的播放做簡易循環
+  // Fallback：30秒循環播放一次
   isPlaying.value = true;
-  const playOnceThenSchedule = async () => {
+  const playOnceThenSchedule = async (): Promise<void> => {
     if (!isPlaying.value) return;
-    await music.playRecord(recordId).catch(() => {
-      // ignore
-    });
+    await music.playRecord(recordId).catch(() => {});
     if (!isPlaying.value) return;
     recordLoopHandle = window.setTimeout(() => {
       void playOnceThenSchedule();
@@ -104,136 +126,120 @@ async function startLoop() {
   void playOnceThenSchedule();
 }
 
-function togglePlay() {
-  if (isPlaying.value) stop();
-  else void startLoop();
+function togglePlay(): void {
+  if (isPlaying.value) {
+    stop();
+  } else {
+    void startLoop();
+  }
 }
+
+// 當切換類型時，強制停止目前的播放
+watch(kind, () => stop());
 
 onUnmounted(() => stop());
 </script>
 
 <template>
-  <div class="player-shell">
-    <div class="player-top">
-      <div class="player-title">{{ selectedLabel }}</div>
+  <div
+    class="relative mx-auto w-[340px] rounded-[3rem] border-t border-slate-600 bg-gradient-to-b from-slate-300 to-slate-600 p-5 shadow-2xl ring-[8px] ring-slate-800"
+  >
+    <div
+      class="relative flex aspect-[4/3] w-full flex-col overflow-hidden rounded-xl border-[6px] border-slate-600 bg-gray-200 shadow-inner"
+    >
+      <div class="absolute inset-0 flex scale-125 items-center justify-center opacity-60">
+        <GreenEnergySphere :is-running="isPlaying" :size="280" />
+      </div>
+
+      <div class="relative z-20 flex h-full flex-col p-4">
+        <div class="mb-2 flex items-center justify-between font-mono text-xs text-stone-700/80">
+          <span class="flex items-center gap-1">
+            <span v-if="isPlaying" class="h-1.5 w-1.5 animate-ping rounded-full bg-stone-700"></span>
+            {{ isPlaying ? 'PLAYING' : 'PAUSED' }}
+          </span>
+          <span>VOL 85%</span>
+        </div>
+
+        <div class="flex flex-1 flex-col items-center justify-center">
+          <h2 class="px-2 text-center text-2xl tracking-tight text-black">
+            {{ selectedLabel }}
+          </h2>
+          <div class="mt-2 h-1 w-24 overflow-hidden rounded-full bg-sky-500/30">
+            <div
+              class="h-full bg-sky-500 transition-all duration-500"
+              :style="{ width: isPlaying ? '100%' : '0%' }"
+            ></div>
+          </div>
+        </div>
+
+        <div class="mt-auto border-t border-gray-400/80 pt-2">
+          <div class="mb-2 grid grid-cols-2 gap-2">
+            <button
+              v-for="opt in ['note', 'record'] as const"
+              :key="opt"
+              @click="kind = opt"
+              class="cursor-pointer rounded border px-2 py-0.5 text-sm transition-all"
+              :class="kind === opt ? 'border-gray-400 bg-gray-400 text-white' : 'border-gray-500 hover:bg-white/40'"
+            >
+              {{ opt.toUpperCase() }}
+            </button>
+          </div>
+
+          <div class="group relative">
+            <select
+              v-if="kind === 'note'"
+              v-model="selectedNoteId"
+              @change="stop()"
+              class="w-full cursor-pointer appearance-none rounded border border-gray-500 bg-white/30 px-2 py-1 text-sm text-gray-700 outline-none hover:bg-white/60"
+            >
+              <option value="" disabled>--- CHOOSE EFFECT ---</option>
+              <option v-for="f in acquiredNotes" :key="f.id" :value="f.id">{{ f.label }}</option>
+            </select>
+
+            <select
+              v-else
+              v-model="selectedRecordId"
+              @change="stop()"
+              class="w-full cursor-pointer appearance-none rounded border border-gray-500 bg-white/30 px-2 py-1 text-sm text-gray-700 outline-none hover:bg-white/60"
+            >
+              <option value="" disabled>--- CHOOSE TRACK ---</option>
+              <option v-for="r in music.musicRecords" :key="r.id" :value="r.id">{{ r.name }}</option>
+            </select>
+            <ChevronDown class="absolute top-1/2 right-2 h-3 w-3 -translate-y-1/2 text-gray-500" />
+          </div>
+        </div>
+      </div>
     </div>
 
-    <div class="player-controls">
-      <button
-        class="big-play"
-        @click="togglePlay"
-        :disabled="kind === 'note' ? !selectedNoteId : !selectedRecordId"
-        aria-label="播放/停止"
+    <!-- 按鈕 -->
+    <div class="mt-8 mb-4 flex justify-center">
+      <div
+        class="group relative flex h-44 w-44 items-center justify-center rounded-full border border-slate-600 bg-gradient-to-b from-slate-200 to-slate-300 shadow-xl"
       >
-        <Play v-if="!isPlaying" class="ml-0.5 h-7 w-7" />
-        <Square v-else class="h-6 w-6" />
-      </button>
+        <div class="absolute top-4 text-sm font-bold tracking-widest text-slate-700">MENU</div>
+
+        <PlayStopButton
+          :is-playing="isPlaying"
+          :size="60"
+          class="rounded-full bg-white ring ring-slate-500 active:scale-90"
+          :disabled="kind === 'note' ? !selectedNoteId : !selectedRecordId"
+          @click="togglePlay"
+        />
+      </div>
     </div>
 
-    <div class="picker">
-      <div class="row">
-        <label class="label">類型</label>
-        <select v-model="kind" class="select">
-          <option value="note">音效</option>
-          <option value="record">唱片</option>
-        </select>
-      </div>
-
-      <div class="row" v-if="kind === 'note'">
-        <label class="label">音效</label>
-        <select v-model="selectedNoteId" class="select" @change="stop()">
-          <option value="" disabled>選擇曾獲取過的音效</option>
-          <option v-for="f in acquiredNotes" :key="f.id" :value="f.id">{{ f.label }}</option>
-        </select>
-      </div>
-      <div class="hint" v-if="kind === 'note' && acquiredNotes.length === 0">尚未獲取任何音效</div>
-
-      <div class="row" v-if="kind === 'record'">
-        <label class="label">唱片</label>
-        <select v-model="selectedRecordId" class="select" @change="stop()">
-          <option value="" disabled>選擇已儲存的唱片</option>
-          <option v-for="r in music.musicRecords" :key="r.id" :value="r.id">{{ r.name }}</option>
-        </select>
-      </div>
-      <div class="hint" v-if="kind === 'record' && music.musicRecords.length === 0">尚未儲存任何唱片</div>
+    <div class="flex justify-center gap-1.5 opacity-30">
+      <div v-for="i in 3" :key="i" class="h-1 w-1 rounded-full bg-black"></div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.player-shell {
-  width: 360px;
-  max-width: calc(100vw - 24px);
-  background: rgba(55, 61, 73, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 18px;
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.25);
-  padding: 12px 14px;
-  color: rgba(255, 255, 255, 0.92);
-  position: relative;
-}
-.player-top {
-  display: grid;
-  grid-template-columns: 1fr;
-  align-items: center;
-  gap: 10px;
-}
-.player-title {
-  font-weight: 700;
-  text-align: center;
-  user-select: none;
-}
-.player-controls {
-  margin-top: 12px;
-  display: flex;
-  justify-content: center;
-}
-.big-play {
-  width: 56px;
-  height: 56px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
-  color: rgba(30, 36, 48, 0.95);
-  border: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.12s ease;
-}
-.big-play:disabled {
-  opacity: 0.45;
-}
-.big-play:not(:disabled):active {
-  transform: scale(0.98);
-}
-.picker {
-  margin-top: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.row {
-  display: grid;
-  grid-template-columns: 46px 1fr;
-  gap: 10px;
-  align-items: center;
-}
-.label {
-  font-size: 12px;
-  opacity: 0.8;
-}
-.select {
-  width: 100%;
-  border-radius: 12px;
-  padding: 8px 10px;
-  background: rgba(255, 255, 255, 0.92);
-  color: rgba(30, 36, 48, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  outline: none;
-}
-.hint {
-  font-size: 12px;
-  opacity: 0.7;
-  text-align: center;
+/* 讓螢幕內的 Select 選項 */
+select option {
+  background-color: white;
+  color: #323333;
+  padding: 10px;
+  font-size: 16px;
 }
 </style>
