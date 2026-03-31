@@ -1,19 +1,11 @@
 <script setup lang="ts">
 import { ref, computed, onUnmounted, watch } from 'vue';
-import { Play, Square, ChevronDown } from 'lucide-vue-next';
+import { ChevronDown } from 'lucide-vue-next';
 import PlayStopButton from './PlayStopButton.vue';
 import { FRAGMENT_TYPES, getFragmentById } from '@/data/audioCatalog';
 import { useFragmentsStore } from '@/stores/fragments';
 import { useMusicStore } from '@/stores/music';
 import { useBackgroundStore } from '@/stores/background';
-
-interface Props {
-  size?: number;
-}
-
-const props = withDefaults(defineProps<Props>(), {
-  size: 320,
-});
 
 const fragments = useFragmentsStore();
 const music = useMusicStore();

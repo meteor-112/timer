@@ -4,7 +4,7 @@ import { computed, onUnmounted, ref } from 'vue';
 import PlayStopButton from './PlayStopButton.vue';
 import ActionIconButton from './ActionIconButton.vue';
 import { MySwal } from '@/composables/useAlert';
-import { FRAGMENT_TYPES, getFragmentById } from '@/data/audioCatalog';
+import { getFragmentById } from '@/data/audioCatalog';
 import { useFragmentsStore } from '@/stores/fragments';
 import { useMusicStore, type MusicRecord, type MusicTrackMix } from '@/stores/music';
 // 引入lucide
@@ -171,11 +171,6 @@ async function togglePreview() {
   }, 30_000);
 }
 
-/** 取得音軌對應的代表色 (用於 UI 背景或進度條) */
-function colorFor(noteId: string): string {
-  return FRAGMENT_TYPES.find((f) => f.id === noteId)?.color ?? '#acd7ff';
-}
-
 /** 製作唱片：呼叫 Store 邏輯生成記錄並產出 MP3 */
 async function createRecord() {
   if (!canCreate.value) return;
@@ -244,11 +239,6 @@ function saveRename() {
   if (!editTargetId.value) return;
   music.renameRecord(editTargetId.value, editName.value);
   editTargetId.value = null;
-}
-
-//計算顯示用的音軌總數
-function trackCountLabel(r: MusicRecord): number {
-  return r.mix?.length ?? r.noteIds.length;
 }
 
 //播放/終止單張已存唱片 (播放合成後的 MP3)
@@ -597,7 +587,7 @@ onUnmounted(() => {
         </div>
         <h3 class="font-mono text-white uppercase">COMM-UNIT 01</h3>
         <div class="ml-auto flex gap-1.5 rounded border border-stone-800 bg-gray-300 p-1.5">
-          <div v-for="line in 4" class="h-5 w-1 rounded-full bg-stone-800"></div>
+          <div v-for="i in 4" :key="i" class="h-5 w-1 rounded-full bg-stone-800"></div>
         </div>
       </section>
       <!-- 內容區 -->

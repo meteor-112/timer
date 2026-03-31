@@ -1,8 +1,11 @@
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { defineStore } from 'pinia';
 import { useAudioEngine } from '@/composables/useAudioEngine';
 import { legacyMixFromNoteIds, renderRecordMp3FromMix, type MixTrack } from '@/composables/renderRecordTone';
 import { getRecordMp3Blob, hasRecordMp3, putRecordMp3 } from '@/utils/idb/recordMp3Db';
+import { get, ref as dbRef, remove, set } from 'firebase/database';
+import { firebaseDb } from '@/lib/firebase';
+import { useAuthStore } from '@/stores/auth';
 
 export type MusicTrackMix = MixTrack;
 
@@ -95,6 +98,100 @@ export const useMusicStore = defineStore('music', () => {
 
   const pinnedRecord = computed(() => musicRecords.value.find((r) => r.id === pinnedId.value) ?? null);
 
+  const auth = useAuthStore();
+  // 如果 Firebase 沒設定，init 會安全失敗
+  auth.init();
+
+  let hydratedPinnedUid: string | null = null;
+  let suppressRemoteWrite = false;
+
+  type RemotePinned = {
+    noteIds: string[];
+    mix?: MusicTrackMix[];
+    name?: string;
+    updatedAt?: number;
+  };
+
+  function remotePinnedPath(uid: string) {
+    return `users/${uid}/pinned`;
+  }
+
+  async function loadRemotePinnedIfNeeded(): Promise<void> {
+    const uid = auth.uid;
+    if (!uid) return;
+    if (hydratedPinnedUid === uid) return;
+
+    let db;
+    try {
+      db = firebaseDb();
+    } catch {
+      return;
+    }
+
+    try {
+      const snap = await get(dbRef(db, remotePinnedPath(uid)));
+      const v = snap.val() as Partial<RemotePinned> | null;
+      if (!v || !Array.isArray(v.noteIds) || v.noteIds.length === 0) {
+        hydratedPinnedUid = uid;
+        return;
+      }
+
+      suppressRemoteWrite = true;
+
+      if (Array.isArray(v.mix) && v.mix.length) {
+        const record = createRecord((v.mix as MusicTrackMix[]).slice(0, 5), v.name ?? undefined);
+        setPinned(record.id);
+      } else {
+        const mix = legacyMixFromNoteIds(v.noteIds.filter(Boolean).slice(0, 5));
+        const record = createRecord(mix, v.name ?? undefined);
+        setPinned(record.id);
+      }
+
+      hydratedPinnedUid = uid;
+    } catch {
+      // ignore
+    } finally {
+      suppressRemoteWrite = false;
+    }
+  }
+
+  async function saveRemotePinnedIfGoogle(record: MusicRecord | null): Promise<void> {
+    const uid = auth.uid;
+    if (!uid) return;
+    if (suppressRemoteWrite) return;
+
+    let db;
+    try {
+      db = firebaseDb();
+    } catch {
+      return;
+    }
+
+    if (!record) {
+      await remove(dbRef(db, remotePinnedPath(uid))).catch(() => {});
+      return;
+    }
+
+    const payload: RemotePinned = {
+      noteIds: record.noteIds.slice(0, 5),
+      mix: getMixForRecord(record),
+      name: record.name.slice(0, 60),
+      updatedAt: Date.now(),
+    };
+
+    await set(dbRef(db, remotePinnedPath(uid)), payload).catch(() => {});
+  }
+
+  // Google 登入後，載入遠端置頂（避免每次重新整理都需要手動置頂）
+  // 以 auth.uid 當作觸發條件，且只針對每個 uid 載入一次
+  watch(
+    () => auth.uid,
+    () => {
+      void loadRemotePinnedIfNeeded();
+    },
+    { immediate: true },
+  );
+
   function getRecordById(id: string): MusicRecord | undefined {
     return musicRecords.value.find((r) => r.id === id);
   }
@@ -130,6 +227,9 @@ export const useMusicStore = defineStore('music', () => {
   function setPinned(recordId: string | null): void {
     pinnedId.value = recordId;
     persistMusic(musicRecords.value, pinnedId.value, mp3ReadyAt.value);
+
+    // Google：跨裝置保存置頂唱片
+    void saveRemotePinnedIfGoogle(recordId ? getRecordById(recordId) ?? null : null);
   }
 
   function shareRecord(recordId: string): string | null {

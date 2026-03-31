@@ -5,14 +5,15 @@ import FragmentsPanel from '@/components/FragmentsPanel.vue';
 import MusicStudioPanel from '@/components/MusicStudioPanel.vue';
 import InfoPage from '@/components/InfoPage.vue';
 import WorldRoomPanel from '@/components/WorldRoomPanel.vue';
+import ProfilePanel from '@/components/ProfilePanel.vue';
 import PlayerBar from '@/components/PlayerBar.vue';
 import { useFragmentsStore } from '@/stores/fragments';
 
 // 圖標組件引入
-import { CassetteTape, Sparkles, Music, Globe, X, Info } from 'lucide-vue-next';
+import { CassetteTape, Sparkles, Music, Globe, X, Info, User } from 'lucide-vue-next';
 
 // 定義面板切換的型別，確保 tab.value
-type TabKey = 'fragments' | 'music' | 'world' | 'info';
+type TabKey = 'fragments' | 'music' | 'world' | 'profile' | 'info';
 
 // --- 響應式狀態 (State) ---
 const tab = ref<TabKey>('fragments'); // 當前激活的面板分頁
@@ -55,11 +56,6 @@ watch(
 function openPanel(next: TabKey) {
   tab.value = next;
   drawerOpen.value = true;
-}
-
-//切換手機版播放器顯示
-function togglePlayer() {
-  isPlayerOpen.value = !isPlayerOpen.value;
 }
 </script>
 
@@ -159,6 +155,16 @@ function togglePlayer() {
 
       <button
         type="button"
+        @click="openPanel('profile')"
+        class="focus:ring-highlight flex h-12 w-12 cursor-pointer items-center justify-center rounded-2xl border-2 transition-transform hover:scale-110 md:h-20 md:w-20"
+        title="個人"
+        aria-label="開啟個人介面"
+      >
+        <User class="h-5 w-5 md:h-8 md:w-8" />
+      </button>
+
+      <button
+        type="button"
         @click="openPanel('info')"
         class="focus:ring-highlight flex h-12 w-12 cursor-pointer items-center justify-center rounded-2xl border-2 transition-transform hover:scale-110 md:h-20 md:w-20"
         title="資訊"
@@ -183,7 +189,15 @@ function togglePlayer() {
             <section class="border-theme flex items-center justify-between gap-3 border-b px-5 py-1.5">
               <h2>
                 {{
-                  tab === 'fragments' ? '聲音碎片' : tab === 'music' ? '音樂工坊' : tab === 'world' ? '世界' : '資訊'
+                  tab === 'fragments'
+                    ? '聲音碎片'
+                    : tab === 'music'
+                      ? '音樂工坊'
+                      : tab === 'world'
+                        ? '世界'
+                        : tab === 'profile'
+                          ? '個人'
+                          : '資訊'
                 }}
               </h2>
               <button type="button" class="cursor-pointer" aria-label="關閉面板" @click="drawerOpen = false">
@@ -195,6 +209,7 @@ function togglePlayer() {
               <FragmentsPanel v-if="tab === 'fragments'" />
               <MusicStudioPanel v-else-if="tab === 'music'" />
               <WorldRoomPanel v-else-if="tab === 'world'" />
+              <ProfilePanel v-else-if="tab === 'profile'" />
               <InfoPage v-else />
             </div>
           </div>

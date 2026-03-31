@@ -150,6 +150,7 @@ export const useFragmentsStore = defineStore('fragments', () => {
     counts,
     lastCollected,
     // Getters
+    displayList,
     progressById,
     unlockedNoteIds,
     collectionSummary,

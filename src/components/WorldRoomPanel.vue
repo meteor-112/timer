@@ -7,35 +7,31 @@ import { useFragmentsStore } from '@/stores/fragments';
 import { useTimerStore } from '@/stores/timer';
 import { useAudioEngine } from '@/composables/useAudioEngine';
 import type { WorldUser } from '@/stores/world';
+import { useAuthStore } from '@/stores/auth';
 
 const world = useWorldStore();
 const music = useMusicStore();
 const fragments = useFragmentsStore();
 const timer = useTimerStore();
 const audio = useAudioEngine();
+const auth = useAuthStore();
 
 const nowMs = ref(Date.now());
 let nowHandle: number | null = null;
 
 onMounted(() => {
-  world.initSimulation({ size: 5 });
+  auth.init();
+  void world.connect();
   nowHandle = window.setInterval(() => {
     nowMs.value = Date.now();
   }, 1000);
 });
 
 onUnmounted(() => {
-  world.stopSimulation();
+  world.disconnect();
   if (nowHandle != null) window.clearInterval(nowHandle);
   stopPinnedPlayback();
 });
-
-function formatFocusMs(ms: number): string {
-  const totalSec = Math.max(0, Math.floor(ms / 1000));
-  const m = Math.floor(totalSec / 60);
-  const s = totalSec % 60;
-  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-}
 
 function colorForNoteId(id: string): string {
   return getFragmentById(id)?.color ?? '#acd7ff';
@@ -49,33 +45,35 @@ const selfPinnedNoteIds = computed(() => {
 
 const selfPrimaryId = computed(() => selfPinnedNoteIds.value[0] ?? 'dawn');
 
-const focusUsers = computed(() => {
+const onlineUsers = computed(() => {
   const list: Array<{
     id: string;
     name: string;
     isSelf: boolean;
-    focusStartedAtMs: number;
+    status: 'focus' | 'rest';
+    statusSinceMs: number;
+    message?: string;
     pinnedNoteIds: string[];
     pinnedPrimaryId: string;
-    isFocusing: boolean;
     pinnedRecordId?: string | null;
   }> = [];
 
-  if (timer.status === 'running') {
+  if (auth.uid) {
     const pinnedRecordId = music.pinnedRecord?.id ?? null;
     list.push({
-      id: 'self',
-      name: '你',
+      id: auth.uid,
+      name: auth.displayName,
       isSelf: true,
-      focusStartedAtMs: Date.now() - timer.elapsedMs,
+      status: timer.status === 'running' ? 'focus' : 'rest',
+      statusSinceMs: timer.status === 'running' ? Date.now() - timer.elapsedMs : Date.now(),
+      message: auth.profile.message?.trim() ?? '',
       pinnedNoteIds: selfPinnedNoteIds.value,
       pinnedPrimaryId: selfPrimaryId.value,
-      isFocusing: true,
       pinnedRecordId,
     });
   }
 
-  for (const u of world.focusingUsers) {
+  for (const u of world.others) {
     list.push({ ...u, isSelf: false });
   }
   return list;
@@ -126,20 +124,7 @@ async function togglePinnedForUser(
     }
   }
 
-  const fallbackId = u.pinnedNoteIds[0];
-  const fallbackUrl = fallbackId ? getFragmentById(fallbackId)?.trackAudioUrl : null;
-  if (fallbackUrl) {
-    const el = new Audio(fallbackUrl);
-    playbackAudioEl = el;
-    playingUserId.value = u.id;
-    el.onended = () => {
-      if (playbackAudioEl === el) stopPinnedPlayback();
-    };
-    void el.play().catch(() => stopPinnedPlayback());
-    return;
-  }
-
-  // 最後退路：若無可用 mp3，仍保留舊合成播放（此分支無法精準停止）
+  // 最後退路：若無可用 mp3，用 noteIds 合成播放（此分支無法精準停止）
   playingUserId.value = u.id;
   await audio.playRecordByNoteIds(u.pinnedNoteIds).catch(() => {
     // ignore
@@ -153,34 +138,22 @@ async function togglePinnedForUser(
     <header class="mb-6 flex items-start justify-between">
       <div>
         <h3 class="mt-2 text-sm font-medium text-[#999]">
-          目前有 <span class="text-[#666]">{{ focusUsers.length }}</span> 人正在專注
+          線上 <span class="text-[#666]">{{ onlineUsers.length }}</span> 人（世界 001）
         </h3>
-      </div>
-
-      <div class="flex items-center gap-2 rounded-2xl border border-gray-100 bg-white p-1 shadow-sm">
-        <input
-          v-model="world.roomId"
-          type="text"
-          placeholder="房間 ID"
-          class="w-24 bg-transparent px-3 py-1 text-sm text-[#666] outline-none"
-        />
-        <button
-          @click="world.setRoomId(world.roomId)"
-          class="rounded-xl bg-[#f0f2f5] px-4 py-1.5 text-xs font-bold text-[#777] transition-colors hover:bg-[#e4e6e9]"
-        >
-          切換
-        </button>
       </div>
     </header>
 
     <div class="flex flex-col gap-4">
       <div
-        v-for="u in focusUsers"
+        v-for="u in onlineUsers"
         :key="u.id"
         class="group relative flex items-center justify-between rounded-[32px] border border-gray-50 bg-white p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)]"
       >
         <div class="flex items-center gap-5">
-          <div class="flex h-14 w-14 items-center justify-center rounded-full bg-[#f0f2f5] text-[#9ca3af]">
+          <div
+            class="flex h-14 w-14 items-center justify-center rounded-full text-[#9ca3af]"
+            :style="{ background: u.pinnedPrimaryId ? colorForNoteId(u.pinnedPrimaryId) + '22' : '#f0f2f5' }"
+          >
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
               <circle cx="12" cy="7" r="4" />
@@ -191,11 +164,14 @@ async function togglePinnedForUser(
             <div class="flex items-center gap-2">
               <span class="text-lg font-bold text-[#4a4a4a]">{{ u.name }}</span>
               <span class="text-sm font-normal text-[#999]">
-                {{ Math.floor((nowMs - u.focusStartedAtMs) / 60000) }} 分鐘
+                {{ Math.floor((nowMs - u.statusSinceMs) / 60000) }} 分鐘
               </span>
             </div>
             <div class="mt-0.5 text-sm font-medium text-[#888]">
-              {{ '正在專注中' }}
+              {{ u.status === 'focus' ? '專注中' : '休息中' }}
+            </div>
+            <div v-if="u.message" class="mt-1 text-sm text-[#999] line-clamp-2">
+              {{ u.message }}
             </div>
             <div class="mt-2 flex items-center gap-1.5 text-sm font-bold text-[#7c73e6]">
               <span class="text-base">♫</span>
@@ -214,9 +190,9 @@ async function togglePinnedForUser(
         </button>
       </div>
 
-      <div v-if="focusUsers.length === 0" class="py-20 text-center">
+      <div v-if="onlineUsers.length === 0" class="py-20 text-center">
         <div class="mb-4 text-4xl opacity-20">☁️</div>
-        <p class="font-medium text-[#bbb]">目前房間內沒有人，開始專注來加入吧</p>
+        <p class="font-medium text-[#bbb]">目前沒有線上使用者，去「個人」先以遊客登入吧</p>
       </div>
     </div>
   </section>
