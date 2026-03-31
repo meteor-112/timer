@@ -1,6 +1,6 @@
 import { computed, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
-import { onDisconnect, onValue, ref as dbRef, serverTimestamp, set, update, type DatabaseReference } from 'firebase/database'
+import { get, onDisconnect, onValue, ref as dbRef, serverTimestamp, set, update, type DatabaseReference } from 'firebase/database'
 import { firebaseDb } from '@/lib/firebase'
 import { useAuthStore } from '@/stores/auth'
 import { useTimerStore } from '@/stores/timer'
@@ -126,7 +126,10 @@ export const useWorldStore = defineStore('world', () => {
       lastActiveAt: serverTimestamp(),
       lastActiveMs: Date.now(),
     }
-    await set(selfRef, rec).catch(() => {})
+    await set(selfRef, rec).catch((e) => {
+       
+      console.warn('[world] presence write failed:', e)
+    })
   }
 
   async function connect() {
@@ -153,7 +156,10 @@ export const useWorldStore = defineStore('world', () => {
       pinnedPrimaryId: selfPrimaryId.value,
       lastActiveAt: serverTimestamp(),
       lastActiveMs: Date.now(),
-    } satisfies PresenceRecord).catch(() => {})
+    } satisfies PresenceRecord).catch((e) => {
+       
+      console.warn('[world] presence write failed:', e)
+    })
 
     void onDisconnect(selfRef).remove().catch(() => {})
 
@@ -163,10 +169,20 @@ export const useWorldStore = defineStore('world', () => {
       isConnected.value = true
     })
 
+    // 主動測試讀取權限：若 rules 擋住 rooms/001/presence 的 read，
+    // other users 就會永遠是空陣列。
+    void get(roomRef).catch((e) => {
+       
+      console.warn('[world] presence read failed:', e)
+    })
+
     if (heartbeatHandle != null) window.clearInterval(heartbeatHandle)
     heartbeatHandle = window.setInterval(() => {
       if (!selfRef) return
-      void update(selfRef, { lastActiveAt: serverTimestamp(), lastActiveMs: Date.now() }).catch(() => {})
+      void update(selfRef, { lastActiveAt: serverTimestamp(), lastActiveMs: Date.now() }).catch((e) => {
+         
+        console.warn('[world] presence heartbeat update failed:', e)
+      })
     }, 25_000)
   }
 
