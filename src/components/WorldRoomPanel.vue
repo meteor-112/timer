@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue';
+import PlayStopButton from './PlayStopButton.vue';
 import { getFragmentById } from '@/data/audioCatalog';
 import { useWorldStore } from '@/stores/world';
 import { useMusicStore } from '@/stores/music';
@@ -8,6 +9,22 @@ import { useTimerStore } from '@/stores/timer';
 import { useAudioEngine } from '@/composables/useAudioEngine';
 import type { WorldUser } from '@/stores/world';
 import { useAuthStore } from '@/stores/auth';
+import { User } from 'lucide-vue-next';
+
+/**
+ * 定義組件內部使用的 User 介面，擴充 pinnedRecordId 可選屬性
+ */
+interface DisplayUser {
+  id: string;
+  name: string;
+  isSelf: boolean;
+  status: 'focus' | 'rest';
+  statusSinceMs: number;
+  message?: string;
+  pinnedNoteIds: string[];
+  pinnedPrimaryId: string;
+  pinnedRecordId?: string | null;
+}
 
 const world = useWorldStore();
 const music = useMusicStore();
@@ -33,6 +50,15 @@ onUnmounted(() => {
   stopPinnedPlayback();
 });
 
+const formatStatusText = computed(() => {
+  return (u: { status: 'focus' | 'rest'; statusSinceMs: number }): string => {
+    if (u.status === 'rest') return '休息中';
+    const diffMin = Math.floor((nowMs.value - u.statusSinceMs) / 60000);
+    const timeText = diffMin <= 0 ? '剛剛' : `${diffMin} 分鐘`;
+    return `專注中 · ${timeText}`;
+  };
+});
+
 function colorForNoteId(id: string): string {
   return getFragmentById(id)?.color ?? '#acd7ff';
 }
@@ -45,18 +71,8 @@ const selfPinnedNoteIds = computed(() => {
 
 const selfPrimaryId = computed(() => selfPinnedNoteIds.value[0] ?? 'dawn');
 
-const onlineUsers = computed(() => {
-  const list: Array<{
-    id: string;
-    name: string;
-    isSelf: boolean;
-    status: 'focus' | 'rest';
-    statusSinceMs: number;
-    message?: string;
-    pinnedNoteIds: string[];
-    pinnedPrimaryId: string;
-    pinnedRecordId?: string | null;
-  }> = [];
+const onlineUsers = computed<DisplayUser[]>(() => {
+  const list: DisplayUser[] = [];
 
   if (auth.uid) {
     const pinnedRecordId = music.pinnedRecord?.id ?? null;
@@ -94,11 +110,10 @@ function stopPinnedPlayback() {
   playbackAudioEl = null;
 }
 
-async function togglePinnedForUser(
-  u:
-    | (WorldUser & { pinnedRecordId?: string | null })
-    | { id: string; pinnedNoteIds: string[]; pinnedRecordId?: string | null },
-) {
+async function togglePinnedForUser(u: DisplayUser) {
+  // 若無 MP3 且非合成模式則不動作（防呆）
+  if (!u.pinnedRecordId && u.pinnedNoteIds.length === 0) return;
+
   if (playingUserId.value === u.id) {
     stopPinnedPlayback();
     return;
@@ -106,11 +121,10 @@ async function togglePinnedForUser(
 
   stopPinnedPlayback();
 
-  const pinnedRecordId = (u as { pinnedRecordId?: string | null }).pinnedRecordId;
-  if (pinnedRecordId) {
-    const ok = await music.ensureRecordMp3(pinnedRecordId).catch(() => false);
+  if (u.pinnedRecordId) {
+    const ok = await music.ensureRecordMp3(u.pinnedRecordId).catch(() => false);
     if (ok) {
-      const url = await music.getRecordMp3ObjectUrl(pinnedRecordId);
+      const url = await music.getRecordMp3ObjectUrl(u.pinnedRecordId);
       if (url) {
         const el = new Audio(url);
         playbackAudioEl = el;
@@ -124,21 +138,19 @@ async function togglePinnedForUser(
     }
   }
 
-  // 最後退路：若無可用 mp3，用 noteIds 合成播放（此分支無法精準停止）
+  // 退路處理
   playingUserId.value = u.id;
-  await audio.playRecordByNoteIds(u.pinnedNoteIds).catch(() => {
-    // ignore
-  });
+  await audio.playRecordByNoteIds(u.pinnedNoteIds).catch(() => {});
   playingUserId.value = null;
 }
 </script>
 
 <template>
-  <section class="min-h-screen bg-[#f8f9fa] px-6 py-4">
+  <section class="min-h-screen bg-[#F0F0F0] px-6 py-4">
     <header class="mb-6 flex items-start justify-between">
       <div>
-        <h3 class="mt-2 text-sm font-medium text-[#999]">
-          線上 <span class="text-[#666]">{{ onlineUsers.length }}</span> 人（世界 001）
+        <h3 class="mt-2 font-medium text-[#999]">
+          在線人數： <span class="text-[#666]">{{ onlineUsers.length }}</span> 人
         </h3>
       </div>
     </header>
@@ -154,60 +166,36 @@ async function togglePinnedForUser(
             class="flex h-14 w-14 items-center justify-center rounded-full text-[#9ca3af]"
             :style="{ background: u.pinnedPrimaryId ? colorForNoteId(u.pinnedPrimaryId) + '22' : '#f0f2f5' }"
           >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-              <circle cx="12" cy="7" r="4" />
-            </svg>
+            <User />
           </div>
 
           <div>
             <div class="flex items-center gap-2">
               <span class="text-lg font-bold text-[#4a4a4a]">{{ u.name }}</span>
-              <span class="text-sm font-normal text-[#999]">
-                {{ Math.floor((nowMs - u.statusSinceMs) / 60000) }} 分鐘
-              </span>
             </div>
             <div class="mt-0.5 text-sm font-medium text-[#888]">
-              {{ u.status === 'focus' ? '專注中' : '休息中' }}
+              {{ formatStatusText(u) }}
             </div>
-            <div v-if="u.message" class="mt-1 text-sm text-[#999] line-clamp-2">
+            <div class="mt-0.5 text-sm font-medium text-[#888]">
               {{ u.message }}
-            </div>
-            <div class="mt-2 flex items-center gap-1.5 text-sm font-bold text-[#7c73e6]">
-              <span class="text-base">♫</span>
-              <span>{{ fragments.getFragmentLabel(u.pinnedPrimaryId) }}</span>
             </div>
           </div>
         </div>
 
-        <button
+        <PlayStopButton
+          class="border-2 border-slate-500 transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-30 disabled:active:scale-100"
+          :size="50"
+          :is-playing="playingUserId === u.id"
+          :disabled="!u.pinnedRecordId"
+          :aria-label="u.pinnedRecordId ? '播放音樂' : '無置頂音樂'"
           @click="togglePinnedForUser(u)"
-          class="flex h-12 w-12 items-center justify-center rounded-full border border-gray-100 bg-white text-[#888] shadow-[0_4px_12px_rgba(0,0,0,0.08)] transition-all hover:scale-110 active:scale-95"
-        >
-          <span class="ml-0.5 text-xl">
-            {{ playingUserId === u.id ? 'Ⅱ' : '▷' }}
-          </span>
-        </button>
+        />
       </div>
 
-      <div v-if="onlineUsers.length === 0" class="py-20 text-center">
+      <div v-show="onlineUsers.length === 0" class="py-20 text-center">
         <div class="mb-4 text-4xl opacity-20">☁️</div>
-        <p class="font-medium text-[#bbb]">目前沒有線上使用者，去「個人」先以遊客登入吧</p>
+        <p class="font-medium text-[#bbb]">目前無法查看，先去登入吧！</p>
       </div>
     </div>
   </section>
 </template>
-
-<style scoped>
-/* 讓捲軸對齊圖片中的細長灰色樣式 */
-section::-webkit-scrollbar {
-  width: 6px;
-}
-section::-webkit-scrollbar-thumb {
-  background: #ddd;
-  border-radius: 10px;
-}
-section::-webkit-scrollbar-track {
-  background: transparent;
-}
-</style>

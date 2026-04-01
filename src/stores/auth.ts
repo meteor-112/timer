@@ -4,7 +4,7 @@ import {
   GoogleAuthProvider,
   onAuthStateChanged,
   signInWithPopup,
-  signInAnonymously, // 新增導入
+  signInAnonymously,
   signOut,
   type User,
 } from 'firebase/auth';
