@@ -1,6 +1,7 @@
 <!-- 音樂工坊 -->
 <script setup lang="ts">
 import { computed, onUnmounted, ref } from 'vue';
+import BaseButton from './BaseButton.vue';
 import PlayStopButton from './PlayStopButton.vue';
 import ActionIconButton from './ActionIconButton.vue';
 import { MySwal } from '@/composables/useAlert';
@@ -296,30 +297,38 @@ onUnmounted(() => {
     </header>
     <!-- 工作檯 -->
     <div class="space-y-4">
-      <div class="flex items-center justify-between px-1">
+      <div class="flex flex-wrap items-center justify-between gap-2 px-1">
         <section class="flex items-center gap-2 text-stone-700">
           <AudioLines class="h-7 w-7" />
-          <h3 class="font-mono text-lg font-bold tracking-widest uppercase">工作臺</h3>
+          <h3 class="font-mono text-lg font-bold tracking-widest uppercase">工作檯</h3>
         </section>
 
-        <div class="flex items-center gap-2">
-          <button
+        <div class="ml-auto flex items-center gap-2">
+          <BaseButton
             v-if="tracks.length > 0"
+            :label="previewPlaying ? '停止試聽' : '試聽混音'"
+            bg-color="bg-white"
+            text-color="text-stone-700"
+            shadow-color="168, 162, 158"
             @click="togglePreview"
-            class="group flex cursor-pointer items-center gap-2 rounded-xl border-2 border-stone-400 bg-stone-100 px-4 py-2 text-sm font-bold text-stone-700 transition-all hover:border-stone-500 hover:bg-white active:scale-95"
           >
-            <Square v-show="previewPlaying" class="h-4 w-4 text-red-500" />
-            <Play v-show="!previewPlaying" class="h-4 w-4 text-amber-500" />
-            {{ previewPlaying ? '停止試聽' : '試聽混音' }}
-          </button>
+            <template #icon>
+              <Square v-if="previewPlaying" class="h-5 w-5 text-red-500" />
+              <Play v-else class="h-5 w-5 text-amber-500" />
+            </template>
+          </BaseButton>
 
-          <button
+          <BaseButton
+            label="新增音軌"
+            bg-color="bg-stone-800"
+            shadow-color="168, 162, 158"
             :disabled="!canAddTrack"
             @click="addTrack"
-            class="flex cursor-pointer items-center gap-2 rounded-xl bg-stone-800 px-4 py-2 text-sm font-bold text-white shadow-[0_4px_0_rgb(168,162,158)] transition-all hover:bg-stone-900 active:translate-y-1 active:shadow-none disabled:opacity-30 disabled:grayscale"
           >
-            <Plus class="h-4 w-4 text-amber-400" /> 加入音軌
-          </button>
+            <template #icon>
+              <Plus class="h-5 w-5 text-amber-500" />
+            </template>
+          </BaseButton>
         </div>
       </div>
       <div
@@ -356,12 +365,13 @@ onUnmounted(() => {
                 </option>
               </select>
 
-              <button
+              <ActionIconButton
+                :icon="Trash2"
+                title="刪除"
+                variant="red"
+                class="ml-auto bg-transparent p-1.5 opacity-0 group-hover:opacity-100 hover:bg-red-300/20"
                 @click="removeTrack(idx)"
-                class="ml-auto cursor-pointer rounded-lg p-2 text-stone-400 opacity-0 transition-all group-hover:opacity-100 hover:bg-red-50 hover:text-red-500"
-              >
-                <Trash2 class="h-5 w-4" />
-              </button>
+              />
             </div>
 
             <div class="grid grid-cols-1 gap-8 md:grid-cols-2">
@@ -418,19 +428,13 @@ onUnmounted(() => {
                 </div>
                 <span class="text-xs font-medium text-stone-600">Auto-Pin after save</span>
               </label>
-
-              <button
-                @click="createRecord"
+              <BaseButton
+                bg-color="bg-amber-500"
                 :disabled="!canCreate || generating"
-                class="w-full rounded-xl px-8 py-3 text-sm font-black transition-all active:translate-y-1 active:shadow-none disabled:opacity-50 lg:w-auto"
-                :class="
-                  generating
-                    ? 'bg-stone-300 text-stone-500 shadow-none'
-                    : 'border border-stone-300 bg-stone-200 text-stone-800 shadow-[0_4px_0_rgb(168,162,158)] hover:bg-stone-300'
-                "
+                :class="generating ? 'shadow-none' : ''"
+                @click="createRecord"
+                >{{ generating ? 'PROCESSING...' : 'SAVE DATA' }}</BaseButton
               >
-                {{ generating ? 'PROCESSING...' : 'SAVE DATA' }}
-              </button>
             </div>
           </div>
         </footer>
@@ -618,14 +622,14 @@ onUnmounted(() => {
               <div
                 class="rounded-md border border-stone-600 bg-stone-500 px-4 py-3 text-center text-sm font-bold tracking-widest text-stone-50 uppercase shadow-[0_6px_0_rgb(41,37,36)] group-active:shadow-[0_2px_0_rgb(41,37,36)]"
               >
-                Send Code
+                Copy
               </div>
             </button>
             <button class="group relative transition-all active:top-1" @click="shareCode = ''">
               <div
                 class="rounded-md border border-stone-500 bg-stone-800 px-4 py-3 text-center text-sm font-bold text-stone-100 uppercase shadow-[0_6px_0_rgb(28,25,23)] group-active:shadow-[0_2px_0_rgb(41,37,36)]"
               >
-                reset
+                clear
               </div>
             </button>
           </div>
@@ -664,7 +668,7 @@ onUnmounted(() => {
               <div
                 class="rounded-md border border-stone-500 bg-stone-800 px-4 py-3 text-center text-sm font-bold text-stone-100 uppercase shadow-[0_6px_0_rgb(28,25,23)] group-active:shadow-[0_2px_0_rgb(41,37,36)]"
               >
-                reset
+                clear
               </div>
             </button>
           </div>
@@ -676,7 +680,7 @@ onUnmounted(() => {
           <div class="h-2 w-2 rounded-full bg-stone-900 shadow-inner"></div>
           <div class="h-2 w-2 rounded-full bg-stone-900 shadow-inner"></div>
         </div>
-        <div class="font-mono text-sm text-stone-700">PROPERTY OF WORKSHOP CORP.</div>
+        <div class="font-mono text-sm text-stone-700">WORKSHOP</div>
         <div class="flex gap-2">
           <div class="h-2 w-2 rounded-full bg-stone-900 shadow-inner"></div>
           <div class="h-2 w-2 rounded-full bg-stone-900 shadow-inner"></div>
@@ -695,8 +699,8 @@ onUnmounted(() => {
   padding: 3px 0;
 }
 .button-3d-stone:active {
-  transform: translateY(2px);
-  box-shadow: 0 1px 0 #292524;
+  transform: translateY(4px);
+  box-shadow: none;
 }
 /* 滑桿優化 */
 input[type='range'] {

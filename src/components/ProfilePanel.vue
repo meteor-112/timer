@@ -1,98 +1,130 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import { useAuthStore } from '@/stores/auth'
-import { toast } from '@/composables/useAlert'
+import { computed, ref, watch } from 'vue';
+import BaseButton from './BaseButton.vue';
+import { useAuthStore } from '@/stores/auth';
+import { toast } from '@/composables/useAlert';
 
-const auth = useAuthStore()
-auth.init()
+// 確保 Store 類型推導正確
+const auth = useAuthStore();
+auth.init();
 
-const name = ref(auth.profile.name)
-const message = ref(auth.profile.message)
+// 使用更精確的型別定義
+const name = ref<string>(auth.profile.name);
+const message = ref<string>(auth.profile.message);
 
+/**
+ * 監聽 Store 變化並同步本地狀態
+ * deep: true 在處理巢狀物件時是必要的，但需確保 profile 結構不變
+ */
 watch(
   () => auth.profile,
   (p) => {
-    name.value = p.name
-    message.value = p.message
+    name.value = p.name;
+    message.value = p.message;
   },
   { deep: true },
-)
+);
 
-const kindLabel = computed(() => (auth.kind === 'google' ? 'Google' : auth.kind === 'guest' ? '遊客' : '未登入'))
+/**
+ * 登入狀態標籤推導
+ */
+const kindLabel = computed((): string => {
+  const mapping: Record<string, string> = {
+    google: 'Google 登入',
+    guest: '旅客',
+  };
+  return mapping[auth.kind] || '未登入';
+});
 
-function save() {
-  auth.updateProfile({ name: name.value, message: message.value })
-  toast.success('已保存')
+/**
+ * 保存個人資料
+ */
+async function handleSave(): Promise<void> {
+  try {
+    await auth.updateProfile({
+      name: name.value.trim(),
+      message: message.value.trim(),
+    });
+    toast.success('已保存');
+  } catch (error) {
+    toast.error('保存失敗，請稍後再試');
+  }
 }
 </script>
 
 <template>
-  <section class="min-h-screen bg-[#f8f9fa] px-6 py-4">
-    <header class="mb-6">
-      <h3 class="mt-2 text-sm font-medium text-[#999]">登入狀態：<span class="text-[#666]">{{ kindLabel }}</span></h3>
-    </header>
-
+  <section class="min-h-screen bg-[#F0F0F0] px-6 py-4 transition-colors duration-300">
     <div class="space-y-4">
-      <div class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-        <div class="mb-3 text-sm font-semibold text-[#555]">身份</div>
-        <div class="flex flex-wrap gap-2">
-          <button
-            type="button"
-            class="rounded-xl bg-[#f0f2f5] px-4 py-2 text-sm font-bold text-[#666] hover:bg-[#e4e6e9] active:scale-95"
-            @click="auth.startAsGuest()"
-          >
-            以遊客身份開始
-          </button>
-          <button
-            type="button"
-            class="rounded-xl bg-slate-800 px-4 py-2 text-sm font-bold text-white hover:bg-slate-900 active:scale-95"
-            @click="auth.connectGoogle().catch(() => toast.success('登入被取消或失敗'))"
-          >
-            連結 Google 帳戶
-          </button>
-          <button
+      <section class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm" aria-label="身份設定">
+        <h3 class="mb-3 font-bold text-slate-800">
+          登入狀態：<span class="font-medium text-[#666]">{{ kindLabel }}</span>
+        </h3>
+        <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <template v-if="auth.kind !== 'google'">
+            <BaseButton
+              label="以旅客身份開始"
+              bg-color="bg-[#f0f2f5]"
+              text-color="text-[#666]"
+              class="transition-opacity hover:opacity-80"
+              @click="auth.startAsGuest()"
+            />
+            <BaseButton
+              label="Google 帳戶登入"
+              class="transition-all hover:brightness-110"
+              @click="auth.connectGoogle().catch(() => toast.error('登入被取消或失敗'))"
+            />
+          </template>
+          <BaseButton
             v-if="auth.kind === 'google'"
-            type="button"
-            class="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-bold text-[#666] hover:bg-gray-50 active:scale-95"
+            label="登出"
+            bg-color="bg-sky-600"
+            shadow-color="0, 61, 122"
+            class="transition-colors hover:bg-sky-700"
             @click="auth.logout().catch(() => {})"
-          >
-            登出
-          </button>
+          />
         </div>
-      </div>
+      </section>
 
-      <div class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-        <div class="mb-3 text-sm font-semibold text-[#555]">個人資料</div>
+      <section class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+        <h4 class="mb-3 font-semibold text-[#555]">個人資料</h4>
 
-        <label class="block text-sm font-medium text-[#777]">名字</label>
-        <input
-          v-model="name"
-          type="text"
-          maxlength="20"
-          placeholder="想怎麼被大家看見？"
-          class="mt-1 w-full rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm text-[#555] outline-none focus:border-slate-400"
-        />
+        <div class="flex flex-col gap-1">
+          <label for="nickname" class="font-medium text-[#777]">名字</label>
+          <input
+            id="nickname"
+            v-model="name"
+            type="text"
+            maxlength="20"
+            placeholder="請輸入名字(最長20字以內)"
+            aria-required="true"
+            class="w-full rounded-xl border border-gray-200 bg-white px-4 py-2 text-[#555] transition-all outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+          />
+        </div>
 
-        <label class="mt-4 block text-sm font-medium text-[#777]">留言</label>
-        <textarea
-          v-model="message"
-          maxlength="80"
-          placeholder="留一句話（大家在世界房間會看到）"
-          class="mt-1 w-full resize-none rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm text-[#555] outline-none focus:border-slate-400"
-          rows="3"
-        />
+        <div class="mt-4 flex flex-col gap-1">
+          <label for="user-message" class="font-medium text-[#777]">留言</label>
+          <textarea
+            id="user-message"
+            v-model="message"
+            maxlength="80"
+            placeholder="請留一句話"
+            rows="3"
+            class="w-full resize-none rounded-xl border border-gray-200 bg-white px-4 py-2 text-[#555] transition-all outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+          />
+        </div>
 
         <div class="mt-4 flex items-center justify-end">
-          <button
-            type="button"
-            class="rounded-xl bg-slate-800 px-5 py-2 text-sm font-bold text-white hover:bg-slate-900 active:scale-95"
-            @click="save"
-          >
-            保存
-          </button>
+          <BaseButton label="保存設定" class="transition-transform active:scale-95" @click="handleSave" />
         </div>
-      </div>
+      </section>
     </div>
   </section>
 </template>
 
+<style scoped>
+/* 確保輸入框在 Focus 時有流暢的陰影過渡 */
+input,
+textarea {
+  will-change: border-color, box-shadow;
+}
+</style>

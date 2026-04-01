@@ -146,7 +146,7 @@ async function togglePinnedForUser(u: DisplayUser) {
 </script>
 
 <template>
-  <section class="min-h-screen bg-[#F0F0F0] px-6 py-4">
+  <section class="bg-[#F0F0F0] px-6 py-4">
     <header class="mb-6 flex items-start justify-between">
       <div>
         <h3 class="mt-2 font-medium text-[#999]">

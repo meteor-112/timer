@@ -1,3 +1,4 @@
+// 通知
 import Swal from 'sweetalert2';
 
 // 建立一個自定義樣式的 Swal 實例
@@ -12,9 +13,19 @@ export const MySwal = Swal.mixin({
   buttonsStyling: false, // 禁用原生樣式以套用 Tailwind
 });
 
+// --- Types ---
+
 export type TimerCompletionItem = { kind: 'fragment' | 'unlock'; fragmentId: string };
 
-/** 專注完成：依序顯示恭喜、碎片與解鎖；可選在每則獎勵彈窗前先播放音效 */
+/** Toast 介面定義 */
+interface ToastProvider {
+  success: (title: string) => void;
+  error: (title: string) => void;
+  info: (title: string) => void;
+}
+
+// --- Logic ---
+
 export async function runTimerCompletionAlerts(
   minutes: number,
   items: TimerCompletionItem[],
@@ -52,16 +63,23 @@ export async function runTimerCompletionAlerts(
   }
 }
 
-// Toast 通知範例
-export const toast = {
-  success: (title: string) => {
-    MySwal.fire({
-      title,
-      icon: 'success',
-      toast: true,
-      position: 'top-end',
-      timer: 3000,
-      showConfirmButton: false,
-    });
-  },
+/** * Toast 通知物件
+ * 封裝共通邏輯以嚴格遵守 DRY 原則
+ */
+const fireToast = (title: string, icon: 'success' | 'error' | 'info') => {
+  MySwal.fire({
+    title,
+    icon,
+    toast: true,
+    position: 'bottom-end',
+    timer: 3000,
+    timerProgressBar: true, // 新增進度條增強視覺回饋
+    showConfirmButton: false,
+  });
+};
+
+export const toast: ToastProvider = {
+  success: (title) => fireToast(title, 'success'),
+  error: (title) => fireToast(title, 'error'),
+  info: (title) => fireToast(title, 'info'),
 };
