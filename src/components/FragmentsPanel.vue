@@ -1,3 +1,4 @@
+<!-- 碎片蒐集系統 -->
 <script setup lang="ts">
 import { computed, onUnmounted, ref } from 'vue';
 import { FRAGMENT_TYPES, NOTE_MAX_DURATION_MS, getFragmentById } from '@/data/audioCatalog';
@@ -121,15 +122,10 @@ onUnmounted(() => stopListening());
 
 <template>
   <section class="px-5 py-2">
-    <div class="flex items-start justify-between gap-3">
-      <div>
-        <div class="font-semibold">收集進度：{{ summaryText }}</div>
-        <!-- <div class="mt-1 text-sm" style="color: rgba(79, 93, 93, 0.78)">{{ summaryText }}</div> -->
-      </div>
-    </div>
+    <div class="md:text-md py-2 text-sm">收集進度：{{ summaryText }}</div>
 
     <!-- 音軌列表 -->
-    <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+    <div class="mt-2 grid grid-cols-1 gap-3 pb-2 sm:grid-cols-2">
       <div v-for="f in displayFragments" :key="f.id" class="rounded-2xl border border-gray-300 bg-white p-3">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
@@ -164,7 +160,7 @@ onUnmounted(() => stopListening());
           </p>
 
           <button
-            class="rounded-xl border border-gray-300 bg-gray-200 px-3 py-2 text-sm transition-opacity"
+            class="rounded-xl border border-gray-300 bg-gray-200 px-3 py-2 text-sm font-bold transition-opacity"
             :disabled="!f.isUnlocked"
             @click="toggleListen(f.id)"
             :class="[!f.isUnlocked ? 'cursor-not-allowed opacity-40' : 'cursor-pointer hover:opacity-80']"
