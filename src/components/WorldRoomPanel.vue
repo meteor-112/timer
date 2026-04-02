@@ -1,3 +1,4 @@
+<!-- 世界系統 -->
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import PlayStopButton from './PlayStopButton.vue';
@@ -146,38 +147,32 @@ async function togglePinnedForUser(u: DisplayUser) {
 </script>
 
 <template>
-  <section class="bg-[#F0F0F0] px-6 py-4">
+  <section class="bg-[#F0F0F0] px-4 py-4 md:px-6">
     <header class="mb-6 flex items-start justify-between">
-      <div>
-        <h3 class="mt-2 font-medium text-[#999]">
-          在線人數： <span class="text-[#666]">{{ onlineUsers.length }}</span> 人
-        </h3>
-      </div>
+      <h3 class="mt-2 text-[#999]">
+        在線人數： <span class="text-[#666]">{{ onlineUsers.length }}</span> 人
+      </h3>
     </header>
 
     <div class="flex flex-col gap-4">
       <div
         v-for="u in onlineUsers"
         :key="u.id"
-        class="group relative flex items-center justify-between rounded-[32px] border border-gray-50 bg-white p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)]"
+        class="group relative flex items-center justify-between rounded-2xl border border-gray-50 bg-white p-4 md:rounded-3xl md:p-6"
       >
-        <div class="flex items-center gap-5">
+        <div class="flex items-center gap-3 md:gap-5">
           <div
-            class="flex h-14 w-14 items-center justify-center rounded-full text-[#9ca3af]"
+            class="flex h-10 w-10 items-center justify-center rounded-full text-[#9ca3af] md:h-14 md:w-14"
             :style="{ background: u.pinnedPrimaryId ? colorForNoteId(u.pinnedPrimaryId) + '22' : '#f0f2f5' }"
           >
-            <User />
+            <User class="h-5 w-5 md:h-7 md:w-7" />
           </div>
 
-          <div>
-            <div class="flex items-center gap-2">
-              <span class="text-lg font-bold text-[#4a4a4a]">{{ u.name }}</span>
-            </div>
-            <div class="mt-0.5 text-sm font-medium text-[#888]">
-              {{ formatStatusText(u) }}
-            </div>
-            <div class="mt-0.5 text-sm font-medium text-[#888]">
-              {{ u.message }}
+          <div class="min-w-0 flex-1">
+            <span class="text-md truncate font-bold text-[#4a4a4a] md:text-lg">{{ u.name }}</span>
+            <div class="mt-0.5 text-sm text-[#888]">
+              <p>{{ formatStatusText(u) }}</p>
+              <p class="truncate">{{ u.message }}</p>
             </div>
           </div>
         </div>
@@ -192,9 +187,8 @@ async function togglePinnedForUser(u: DisplayUser) {
         />
       </div>
 
-      <div v-show="onlineUsers.length === 0" class="py-20 text-center">
-        <div class="mb-4 text-4xl opacity-20">☁️</div>
-        <p class="font-medium text-[#bbb]">目前無法查看，先去登入吧！</p>
+      <div v-show="onlineUsers.length === 0" class="flex flex-col items-center py-20 text-[#bbb]">
+        <p>目前無法查看，先去登入吧！</p>
       </div>
     </div>
   </section>

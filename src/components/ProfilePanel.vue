@@ -1,3 +1,4 @@
+<!-- 個人頁面 -->
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import BaseButton from './BaseButton.vue';
@@ -57,7 +58,7 @@ async function handleSave(): Promise<void> {
     <div class="space-y-4">
       <section class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm" aria-label="身份設定">
         <h3 class="mb-3 font-bold text-slate-800">
-          登入狀態：<span class="font-medium text-[#666]">{{ kindLabel }}</span>
+          登入狀態：<br class="md:hidden" /><span class="font-medium text-[#666]">{{ kindLabel }}</span>
         </h3>
         <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
           <template v-if="auth.kind !== 'google'">
