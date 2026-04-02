@@ -1,5 +1,9 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, watch, computed, shallowRef } from 'vue';
+import { storeToRefs } from 'pinia';
+import { CassetteTape, Sparkles, Music, Globe, X, Info, User } from 'lucide-vue-next';
+
+// 組件引入
 import TimerCard from '@/components/TimerCard.vue';
 import FragmentsPanel from '@/components/FragmentsPanel.vue';
 import MusicStudioPanel from '@/components/MusicStudioPanel.vue';
@@ -9,68 +13,108 @@ import ProfilePanel from '@/components/ProfilePanel.vue';
 import PlayerBar from '@/components/PlayerBar.vue';
 import { useFragmentsStore } from '@/stores/fragments';
 
-// 圖標組件引入
-import { CassetteTape, Sparkles, Music, Globe, X, Info, User } from 'lucide-vue-next';
-
-// 定義面板切換的型別，確保 tab.value
+// --- 型別與配置 ---
 type TabKey = 'fragments' | 'music' | 'world' | 'profile' | 'info';
 
-// --- 響應式狀態 (State) ---
-const tab = ref<TabKey>('fragments'); // 當前激活的面板分頁
-const drawerOpen = ref(false); // 控制側邊抽屜的顯示狀態
-const isPlayerOpen = ref(false); //控制手機版 PlayerBar 顯示
-const fragments = useFragmentsStore(); // 引入 Pinia Store 管理碎片狀態
+interface NavItem {
+  key: TabKey;
+  label: string;
+  icon: any;
+  component: any;
+  iconColor: string;
+}
 
-/** * Toast 通知狀態
- * text: 顯示文字, at: 建立時的時間戳記（用於判斷過期）
- */
-const toast = ref<{ text: string; at: number } | null>(null);
-
-/**
- * 監聽器：偵測碎片收集事件
- * 當 Store 中的 lastCollected 發生變化（代表使用者獲得新碎片）時觸發通知
- */
-watch(
-  () => fragments.lastCollected?.collectedAt,
-  () => {
-    if (!fragments.lastCollected) return;
-
-    // 獲取碎片名稱並設定 Toast 內容
-    const label = fragments.getFragmentLabel(fragments.lastCollected.fragmentId);
-    toast.value = { text: `獲得碎片：${label}（+1）`, at: Date.now() };
-
-    // 自動消失邏輯：3秒後清空 Toast
-    window.setTimeout(() => {
-      // 檢查機制：避免在 3 秒內若有更強的新通知進來，舊的計時器誤刪了新的通知
-      if (toast.value && Date.now() - toast.value.at > 2800) {
-        toast.value = null;
-      }
-    }, 3000);
+// 使用 shallowRef 優化性能
+const navItems: NavItem[] = [
+  {
+    key: 'fragments',
+    label: '聲音碎片',
+    icon: Sparkles,
+    component: FragmentsPanel,
+    iconColor: 'text-amber-500', // 琥珀金
   },
-);
+  {
+    key: 'music',
+    label: '音樂工坊',
+    icon: CassetteTape,
+    component: MusicStudioPanel,
+    iconColor: 'text-indigo-500', // 靛藍
+  },
+  {
+    key: 'world',
+    label: '世界',
+    icon: Globe,
+    component: WorldRoomPanel,
+    iconColor: 'text-emerald-500', // 翡翠綠
+  },
+  {
+    key: 'profile',
+    label: '個人',
+    icon: User,
+    component: ProfilePanel,
+    iconColor: 'text-rose-500', // 玫瑰紅
+  },
+  {
+    key: 'info',
+    label: '資訊',
+    icon: Info,
+    component: InfoPage,
+    iconColor: 'text-slate-500', // 板岩灰
+  },
+];
 
-/**
- * 開啟面板函數
- * @param next - 目標分頁 Key
- */
+// --- 響應式狀態 ---
+const tab = ref<TabKey>('fragments');
+const drawerOpen = ref(false);
+const isPlayerOpen = ref(false);
+const fragmentsStore = useFragmentsStore();
+
+const toast = ref<{ text: string; at: number } | null>(null);
+let toastTimer: number | null = null;
+
+// --- 計算屬性 ---
+const currentTabInfo = computed(() => navItems.find((i) => i.key === tab.value));
+const currentPanelComponent = computed(() => currentTabInfo.value?.component);
+
+// --- 邏輯函數 ---
 function openPanel(next: TabKey) {
   tab.value = next;
   drawerOpen.value = true;
 }
+
+/**
+ * 處理獲得碎片的通知邏輯
+ */
+watch(
+  () => fragmentsStore.lastCollected?.collectedAt,
+  (newVal) => {
+    if (!newVal || !fragmentsStore.lastCollected) return;
+
+    const label = fragmentsStore.getFragmentLabel(fragmentsStore.lastCollected.fragmentId);
+    toast.value = { text: `獲得碎片：${label}（+1）`, at: Date.now() };
+
+    // 清除舊計時器
+    if (toastTimer) clearTimeout(toastTimer);
+
+    toastTimer = window.setTimeout(() => {
+      toast.value = null;
+      toastTimer = null;
+    }, 3000);
+  },
+);
 </script>
 
 <template>
   <div class="relative flex min-h-screen flex-col overflow-hidden bg-[#E0E1DD]">
-    <!-- 標題 -->
-    <header class="z-10 px-6 pt-6 pb-2 md:absolute">
-      <h1 class="font-display text-xl font-semibold tracking-tight">專注時光</h1>
-      <p class="text-muted-foreground mt-0.5">收集聲音碎片，創造屬於你的音樂</p>
+    <header class="absolute z-10 px-6 pt-6 pb-2">
+      <h1 class="font-display text-lg font-semibold tracking-tight md:text-xl">專注時光</h1>
+      <p class="text-muted-foreground mt-0.5 text-sm">收集聲音碎片，創造屬於你的音樂</p>
     </header>
-    <!-- 計時器 -->
-    <main class="relative z-10 flex flex-1 items-center justify-center px-6">
+
+    <main class="relative z-10 flex flex-1 items-center justify-center px-6 pt-4 md:pt-0">
       <TimerCard />
     </main>
-    <!-- 播放器(電腦) -->
+
     <button
       type="button"
       @click="isPlayerOpen = true"
@@ -115,106 +159,78 @@ function openPanel(next: TabKey) {
           >
             <X class="h-5 w-5" />
           </button>
-
           <PlayerBar />
         </div>
       </Transition>
     </Teleport>
 
-    <!-- 功能面板 -->
     <div class="fixed top-1/2 right-4 z-40 flex -translate-y-1/2 flex-col gap-3" role="group" aria-label="功能選單">
       <button
+        v-for="item in navItems"
+        :key="item.key"
         type="button"
-        @click="openPanel('fragments')"
-        class="focus:ring-highlight flex h-12 w-12 cursor-pointer items-center justify-center rounded-2xl border-2 transition-transform hover:scale-110 md:h-20 md:w-20"
-        title="聲音碎片"
-        aria-label="開啟聲音碎片面板"
+        @click="openPanel(item.key)"
+        class="focus:ring-highlight flex h-12 w-12 cursor-pointer items-center justify-center rounded-2xl border-2 border-slate-600 bg-white/70 backdrop-blur-sm transition-all hover:bg-white/50 active:scale-95 md:h-20 md:w-20"
+        :title="item.label"
+        :aria-label="`開啟${item.label}面板`"
       >
-        <Sparkles class="h-5 w-5 md:h-8 md:w-8" />
-      </button>
-
-      <button
-        type="button"
-        @click="openPanel('music')"
-        class="focus:ring-highlight flex h-12 w-12 cursor-pointer items-center justify-center rounded-2xl border-2 transition-transform hover:scale-110 md:h-20 md:w-20"
-        title="音樂工坊"
-        aria-label="開啟音樂工坊"
-      >
-        <CassetteTape class="h-5 w-5 md:h-8 md:w-8" />
-      </button>
-
-      <button
-        type="button"
-        @click="openPanel('world')"
-        class="focus:ring-highlight flex h-12 w-12 cursor-pointer items-center justify-center rounded-2xl border-2 transition-transform hover:scale-110 md:h-20 md:w-20"
-        title="世界房間 "
-        aria-label="進入世界房間"
-      >
-        <Globe class="h-5 w-5 md:h-8 md:w-8" />
-      </button>
-
-      <button
-        type="button"
-        @click="openPanel('profile')"
-        class="focus:ring-highlight flex h-12 w-12 cursor-pointer items-center justify-center rounded-2xl border-2 transition-transform hover:scale-110 md:h-20 md:w-20"
-        title="個人"
-        aria-label="開啟個人介面"
-      >
-        <User class="h-5 w-5 md:h-8 md:w-8" />
-      </button>
-
-      <button
-        type="button"
-        @click="openPanel('info')"
-        class="focus:ring-highlight flex h-12 w-12 cursor-pointer items-center justify-center rounded-2xl border-2 transition-transform hover:scale-110 md:h-20 md:w-20"
-        title="資訊"
-        aria-label="打開資訊頁"
-      >
-        <Info class="h-5 w-5 md:h-8 md:w-8" />
+        <component :is="item.icon" :class="['h-5 w-5 md:h-8 md:w-8', item.iconColor]" />
       </button>
     </div>
 
-    <!-- 右側面板 -->
     <Teleport to="body">
-      <div v-if="drawerOpen" class="fixed inset-0 z-50 bg-black/10 backdrop-blur-[2px]" @click="drawerOpen = false" />
+      <Transition
+        enter-active-class="transition-opacity duration-300"
+        enter-from-class="opacity-0"
+        enter-to-class="opacity-100"
+        leave-active-class="transition-opacity duration-200"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
+      >
+        <div v-if="drawerOpen" class="fixed inset-0 z-50 bg-black/10 backdrop-blur-[2px]" @click="drawerOpen = false" />
+      </Transition>
 
       <aside
-        class="fixed top-0 right-0 z-50 h-dvh w-[92vw] max-w-[700px] transition-transform duration-200"
+        class="fixed top-0 right-0 z-50 h-dvh w-[92vw] max-w-[700px] transition-transform duration-300 ease-in-out"
         :class="drawerOpen ? 'translate-x-0' : 'translate-x-full'"
         aria-label="右側面板"
       >
         <div class="h-full p-5">
-          <div class="card h-full overflow-hidden">
-            <!-- 面板標題與關閉鈕 -->
-            <section class="border-theme flex items-center justify-between gap-3 border-b px-5 py-1.5">
-              <h2>
-                {{
-                  tab === 'fragments'
-                    ? '聲音碎片'
-                    : tab === 'music'
-                      ? '音樂工坊'
-                      : tab === 'world'
-                        ? '世界'
-                        : tab === 'profile'
-                          ? '個人'
-                          : '資訊'
-                }}
-              </h2>
-              <button type="button" class="cursor-pointer" aria-label="關閉面板" @click="drawerOpen = false">
-                <X class="hover:bg-theme/40" />
+          <div class="card flex h-full flex-col overflow-hidden">
+            <section class="border-theme flex items-center justify-between gap-3 border-b px-5 py-3">
+              <h2 class="text-lg font-medium">{{ currentTabInfo?.label }}</h2>
+              <button
+                type="button"
+                class="cursor-pointer rounded-full p-1 hover:bg-black/5"
+                aria-label="關閉面板"
+                @click="drawerOpen = false"
+              >
+                <X class="h-6 w-6" />
               </button>
             </section>
-            <!-- 面板內容 -->
-            <div class="h-[calc(100%-48px)] overflow-y-auto">
-              <FragmentsPanel v-if="tab === 'fragments'" />
-              <MusicStudioPanel v-else-if="tab === 'music'" />
-              <WorldRoomPanel v-else-if="tab === 'world'" />
-              <ProfilePanel v-else-if="tab === 'profile'" />
-              <InfoPage v-else />
+
+            <div class="flex-1 overflow-y-auto">
+              <component :is="currentPanelComponent" v-if="drawerOpen" />
             </div>
           </div>
         </div>
       </aside>
     </Teleport>
+
+    <Transition
+      enter-active-class="transition duration-300 ease-out"
+      enter-from-class="translate-y-4 opacity-0"
+      enter-to-class="translate-y-0 opacity-100"
+      leave-active-class="transition duration-200 ease-in"
+      leave-from-class="opacity-100"
+      leave-to-class="opacity-0"
+    >
+      <div
+        v-if="toast"
+        class="fixed top-10 left-1/2 z-[60] -translate-x-1/2 rounded-full bg-slate-800 px-4 py-2 text-sm text-white shadow-xl"
+      >
+        {{ toast.text }}
+      </div>
+    </Transition>
   </div>
 </template>

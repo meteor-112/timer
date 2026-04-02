@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { RouterLink } from 'vue-router';
 </script>
 <template>
@@ -64,7 +64,7 @@ import { RouterLink } from 'vue-router';
         </RouterLink>
       </section>
 
-      <footer class="py-2 text-center">
+      <footer class="py-1 text-center">
         <p class="text-sm text-[#bbb]">© 2026 Sound Collector. All rights reserved.</p>
       </footer>
     </div>
