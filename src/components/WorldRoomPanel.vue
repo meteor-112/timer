@@ -77,9 +77,13 @@ const onlineUsers = computed<DisplayUser[]>(() => {
 
   if (auth.uid) {
     const pinnedRecordId = music.pinnedRecord?.id ?? null;
+
+    //優先取 auth.profile.name，若為空則取 auth.displayName，最後保底為「旅客」
+    const myName = auth.profile.name?.trim() || '旅客';
+
     list.push({
       id: auth.uid,
-      name: auth.displayName,
+      name: myName,
       isSelf: true,
       status: timer.status === 'running' ? 'focus' : 'rest',
       statusSinceMs: timer.status === 'running' ? Date.now() - timer.elapsedMs : Date.now(),
@@ -91,7 +95,7 @@ const onlineUsers = computed<DisplayUser[]>(() => {
   }
 
   for (const u of world.others) {
-    list.push({ ...u, isSelf: false });
+    list.push({ ...u, name: u.name?.trim() || '旅客', isSelf: false });
   }
   return list;
 });
@@ -147,20 +151,18 @@ async function togglePinnedForUser(u: DisplayUser) {
 </script>
 
 <template>
-  <section class="bg-[#F0F0F0] px-4 py-4 md:px-6">
-    <header class="mb-6 flex items-start justify-between">
-      <h3 class="mt-2 text-[#999]">
-        在線人數： <span class="text-[#666]">{{ onlineUsers.length }}</span> 人
-      </h3>
-    </header>
+  <section class="px-6 py-4 sm:px-8">
+    <h3 class="md:text-md py-2 text-sm text-[#999]">
+      在線人數： <span class="text-[#666]">{{ onlineUsers.length }}</span> 人
+    </h3>
 
-    <div class="flex flex-col gap-4">
+    <div class="mt-2 flex flex-col gap-4">
       <div
         v-for="u in onlineUsers"
         :key="u.id"
-        class="group relative flex items-center justify-between rounded-2xl border border-gray-50 bg-white p-4 md:rounded-3xl md:p-6"
+        class="group relative flex items-center justify-between rounded-2xl border border-gray-50 bg-white px-2 py-3 md:rounded-3xl md:p-6"
       >
-        <div class="flex items-center gap-3 md:gap-5">
+        <div class="flex items-center gap-2 md:gap-5">
           <div
             class="flex h-10 w-10 items-center justify-center rounded-full text-[#9ca3af] md:h-14 md:w-14"
             :style="{ background: u.pinnedPrimaryId ? colorForNoteId(u.pinnedPrimaryId) + '22' : '#f0f2f5' }"

@@ -227,9 +227,32 @@ async function copyShareCode() {
   }
 }
 
+const panels = [
+  {
+    id: 'share',
+    title: '分享區',
+    state: shareCode, // 這裡傳入原本的 ref
+    placeholder: 'STANDBY...',
+    actionLabel: 'Copy',
+    action: copyShareCode,
+  },
+  {
+    id: 'import',
+    title: '匯入',
+    state: importCode,
+    placeholder: 'AWAITING...',
+    actionLabel: 'Import',
+    action: doImport,
+  },
+];
+
 // --- 唱片改名功能 ---
 const editTargetId = ref<string | null>(null);
 const editName = ref('');
+
+const vFocus = {
+  mounted: (el: HTMLElement) => el.focus(),
+};
 
 function beginRename(record: MusicRecord) {
   editTargetId.value = record.id;
@@ -238,7 +261,16 @@ function beginRename(record: MusicRecord) {
 
 function saveRename() {
   if (!editTargetId.value) return;
-  music.renameRecord(editTargetId.value, editName.value);
+  // 1. 去除前後空格
+  const trimmedName = editName.value.trim();
+  // 2. 檢查是否為空
+  if (!trimmedName) {
+    // 返回，不允許關閉編輯框
+    return;
+  }
+  // 3. 儲存處理過的名字
+  music.renameRecord(editTargetId.value, trimmedName);
+  // 4. 成功後才關閉編輯框
   editTargetId.value = null;
 }
 
@@ -277,14 +309,14 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <section class="space-y-8 px-5 py-6">
+  <section class="space-y-8 px-6 pt-4 pb-8 sm:px-8">
     <header class="z-10 flex flex-col justify-between gap-4 border-b border-stone-300 pb-6 md:flex-row md:items-center">
-      <p class="mt-1 font-medium text-stone-600">
-        挑選最多 5 項碎片，揉合時間與音量，<br />
+      <p class="mt-2 text-stone-600">
+        挑選最多 5 項碎片，揉合時間與音量，<br class="hidden sm:flex" />
         煉製專屬的 30 秒靜心旋律。
       </p>
       <div
-        class="flex items-center gap-3 self-start rounded-2xl border border-stone-300 bg-gray-50 px-4 py-2.5 shadow-sm backdrop-blur-sm md:self-center"
+        class="flex items-center gap-3 self-end rounded-2xl border border-stone-300 bg-gray-50 px-4 py-2.5 shadow-sm backdrop-blur-sm md:self-center"
       >
         <div class="relative flex h-3 w-3">
           <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-500 opacity-75"></span>
@@ -296,14 +328,14 @@ onUnmounted(() => {
       </div>
     </header>
     <!-- 工作檯 -->
-    <div class="space-y-4">
+    <div class="space-y-4 border-b border-stone-300 pb-6">
       <div class="flex flex-wrap items-center justify-between gap-2 px-1">
         <section class="flex items-center gap-2 text-stone-700">
           <AudioLines class="h-7 w-7" />
           <h3 class="font-mono text-lg font-bold tracking-widest uppercase">工作檯</h3>
         </section>
-
-        <div class="ml-auto flex items-center gap-2">
+        <!-- 按鍵 -->
+        <div class="ml-auto flex flex-wrap items-center justify-end gap-2">
           <BaseButton
             v-if="tracks.length > 0"
             :label="previewPlaying ? '停止試聽' : '試聽混音'"
@@ -331,6 +363,7 @@ onUnmounted(() => {
           </BaseButton>
         </div>
       </div>
+      <!-- 未有音軌時 -->
       <div
         v-if="tracks.length === 0"
         class="relative flex flex-col items-center justify-center rounded-[32px] border-2 border-dashed border-stone-400 bg-stone-50/50 py-12"
@@ -346,19 +379,20 @@ onUnmounted(() => {
           </svg>
         </div>
       </div>
+      <!-- 音軌列表 -->
       <div v-if="tracks.length > 0" class="flex flex-col gap-4">
         <transition-group name="list" tag="div" class="grid gap-4">
           <div
             v-for="(t, idx) in tracks"
             :key="t.id"
-            class="group relative rounded-[28px] border border-stone-200 bg-stone-50 p-5 shadow-[4px_4px_0_rgb(214,211,209)] transition-all hover:border-amber-300"
+            class="group relative rounded-2xl border border-stone-200 bg-stone-50 p-4 shadow-[4px_4px_0_rgb(214,211,209)] transition-all hover:border-amber-300"
           >
-            <div class="mb-4 flex items-center justify-between gap-x-6">
-              <p class="font-mono text-lg font-bold text-stone-600 uppercase">Track_{{ idx + 1 }}</p>
+            <div class="mb-4 flex flex-wrap items-center justify-start gap-5">
+              <p class="p-1 font-mono font-bold text-stone-600 uppercase sm:text-lg">Track_{{ idx + 1 }}</p>
 
               <select
                 v-model="t.noteId"
-                class="w-32 rounded-lg border border-stone-300 bg-white px-2 py-1 font-bold focus:border-amber-400 focus:ring-1 focus:ring-amber-300"
+                class="w-full rounded-lg border border-stone-300 bg-white px-2 py-1 font-bold focus:border-amber-400 focus:ring-1 focus:ring-amber-300 md:w-32"
               >
                 <option v-for="id in fragments.unlockedNoteIds" :key="id" :value="id">
                   {{ fragments.getFragmentLabel(id) }}
@@ -369,7 +403,7 @@ onUnmounted(() => {
                 :icon="Trash2"
                 title="刪除"
                 variant="red"
-                class="ml-auto bg-transparent p-1.5 opacity-0 group-hover:opacity-100 hover:bg-red-300/20"
+                class="absolute top-4 right-4 bg-transparent p-1.5 opacity-0 group-hover:opacity-100 hover:bg-red-300/20"
                 @click="removeTrack(idx)"
               />
             </div>
@@ -442,7 +476,7 @@ onUnmounted(() => {
     </div>
 
     <!-- 收藏夾 -->
-    <div class="space-y-6">
+    <div class="space-y-6 border-b border-stone-300 pb-6">
       <section class="flex items-center gap-2 text-stone-700">
         <Disc2 class="h-7 w-7" />
         <h3 class="font-mono text-lg font-bold tracking-widest uppercase">收藏夾</h3>
@@ -468,18 +502,22 @@ onUnmounted(() => {
           <div
             v-for="r in sortedRecords"
             :key="r.id"
-            class="group relative flex flex-col rounded-[24px] border-4 border-stone-800 bg-stone-300 p-2 shadow-[6px_6px_0_rgb(87,83,78)] transition-all hover:-translate-y-0.5"
+            class="group relative flex flex-col rounded-3xl border-3 border-stone-800 bg-stone-300 p-2 shadow-[4px_4px_0_rgb(87,83,78)] transition-all hover:-translate-y-0.5 hover:shadow-[6px_6px_0_rgb(87,83,78)]"
           >
-            <div v-if="music.pinnedId === r.id" class="absolute -top-2 -left-2 z-20">
-              <div class="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500 text-white shadow-md">
-                <Pin class="h-3.5 w-3.5 fill-current" />
+            <!-- 置頂唱片 -->
+            <div v-if="music.pinnedId === r.id" class="absolute -top-4 -left-4 z-20">
+              <div
+                class="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500 text-white shadow-md shadow-gray-600"
+              >
+                <Pin class="h-5 w-5 fill-current" />
               </div>
             </div>
+            <!-- 唱片 -->
             <div class="flex flex-1 flex-col rounded-[18px] bg-stone-400/30 p-4 shadow-inner">
-              <div class="relative mb-4 min-h-[70px] rounded-xl border-4 border-stone-800 bg-stone-900 p-3">
+              <div class="relative mb-4 min-h-[70px] rounded-xl bg-stone-900 p-4">
                 <section class="min-w-0 flex-1">
                   <h5 class="truncate font-mono text-lg font-bold tracking-wider text-stone-100">{{ r.name }}</h5>
-                  <div class="mt-1 flex items-center gap-2 font-mono text-xs font-black text-stone-500 uppercase">
+                  <div class="mt-1 flex items-center gap-2 font-mono text-xs font-black text-stone-300 uppercase">
                     <span class="rounded bg-amber-900/50 px-1.5 py-0.5 text-amber-400 ring-1 ring-amber-900"
                       >Registered</span
                     >
@@ -540,33 +578,45 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <!-- 改名 -->
+            <!-- 改名標籤 -->
             <div
               v-if="editTargetId === r.id"
-              class="absolute inset-x-2 top-4 z-30 bg-amber-100 px-4 pt-4 pb-2 shadow-md ring-1 shadow-gray-400 ring-amber-200/50"
+              class="absolute inset-x-2 top-4 z-30 bg-amber-100 px-4 pt-4 pb-2 shadow-lg ring-1 shadow-gray-600 ring-amber-200/50"
             >
               <div class="mb-2 flex items-center justify-between border-b border-amber-200 pb-1">
                 <span class="text-xs font-bold tracking-widest text-amber-600 uppercase">Edit Label</span>
                 <span class="text-xs text-amber-400">#001</span>
               </div>
+              <label for="edit-input" class="sr-only">編輯名稱</label>
               <input
+                id="edit-input"
+                v-focus
                 v-model="editName"
                 type="text"
                 @keyup.enter="saveRename"
                 @keyup.esc="editTargetId = null"
                 autofocus
-                class="w-full border-none bg-transparent p-0 text-lg font-bold text-stone-800 placeholder:text-amber-200 focus:ring-0"
+                class="text-mono w-full border-b border-b-amber-300 bg-transparent px-2 text-lg text-stone-800"
+                placeholder="輸入名稱"
               />
+              <!-- buttons -->
               <div class="mt-4 flex gap-2">
                 <button
+                  type="button"
                   @click="saveRename"
-                  class="flex-1 rounded-md bg-amber-600 py-2 text-xs font-bold text-white shadow-sm hover:bg-amber-700 active:scale-95"
+                  :class="[
+                    'flex-1 rounded-md py-2 text-xs font-bold transition-all',
+                    editName.trim() // 根據是否有效切換顏色樣式
+                      ? 'cursor-pointer bg-amber-600 text-white hover:bg-amber-700 active:scale-95'
+                      : 'cursor-not-allowed bg-gray-300 text-gray-500',
+                  ]"
                 >
                   確認更新
                 </button>
                 <button
+                  type="button"
                   @click="editTargetId = null"
-                  class="flex-1 rounded-md border border-amber-200 bg-white py-2 text-xs font-bold text-amber-600 hover:bg-gray-100 active:scale-95"
+                  class="flex-1 cursor-pointer rounded-md border border-amber-200 bg-white py-2 text-xs font-bold text-amber-600 hover:bg-gray-100 active:scale-95"
                 >
                   取消
                 </button>
@@ -579,111 +629,80 @@ onUnmounted(() => {
     </div>
 
     <!-- 通訊 -->
-    <section class="flex items-center gap-2 text-stone-700">
-      <RadioTower class="h-7 w-7" />
-      <h3 class="font-mono text-lg font-bold tracking-widest uppercase">工坊通訊</h3>
-    </section>
-    <div class="space-y-6 rounded-[40px] border-6 border-stone-600 bg-stone-400 p-8">
-      <!-- 上緣 -->
-      <section class="mb-4 flex items-center gap-3 border-b-2 border-stone-800 pb-4">
-        <div class="rounded-lg border border-stone-600 bg-stone-900 p-2 shadow-inner">
-          <RadioTower class="h-5 w-5 text-amber-400" />
-        </div>
-        <h3 class="font-mono text-white uppercase">COMM-UNIT 01</h3>
-        <div class="ml-auto flex gap-1.5 rounded border border-stone-800 bg-gray-300 p-1.5">
-          <div v-for="i in 4" :key="i" class="h-5 w-1 rounded-full bg-stone-800"></div>
-        </div>
+    <div class="space-y-6">
+      <section class="flex items-center gap-2 text-stone-700">
+        <RadioTower class="h-7 w-7" />
+        <h3 class="font-mono text-lg font-bold tracking-widest uppercase">工坊通訊</h3>
       </section>
-      <!-- 內容區 -->
-      <div class="grid grid-cols-1 gap-8 p-2 sm:grid-cols-2">
-        <div class="space-y-4">
-          <div class="flex items-center justify-between px-1">
-            <div class="flex items-center gap-3 font-bold text-white uppercase">
-              <span
-                class="h-4 w-4 rounded-full border border-red-900 bg-red-400 shadow-[0_0_8px_rgba(220,38,38,0.6)]"
-              ></span>
-              分享區
+      <!-- 本體 -->
+      <div
+        class="space-y-4 rounded-3xl border-4 border-stone-600 bg-stone-400 p-4 sm:space-y-6 sm:rounded-4xl sm:border-6 sm:p-8"
+      >
+        <section class="mb-2 flex items-center gap-3 border-b-2 border-stone-800 pb-3 sm:mb-4 sm:pb-4">
+          <div class="rounded-lg border border-stone-600 bg-stone-900 p-1.5 shadow-inner sm:p-2">
+            <RadioTower class="h-4 w-4 text-amber-400 sm:h-5 sm:w-5" />
+          </div>
+          <h3 class="font-mono text-sm text-white uppercase sm:text-base">COMM-UNIT 01</h3>
+          <div class="ml-auto flex gap-1 rounded border border-stone-800 bg-gray-300 p-1 sm:gap-1.5 sm:p-1.5">
+            <div v-for="i in 4" :key="i" class="h-4 w-1 rounded-full bg-stone-800 sm:h-5"></div>
+          </div>
+        </section>
+
+        <div class="grid grid-cols-1 gap-6 p-0 sm:grid-cols-2 sm:gap-8 sm:p-2">
+          <div v-for="panel in panels" :key="panel.id" class="space-y-3 sm:space-y-4">
+            <div class="flex items-center justify-between px-1">
+              <div class="flex items-center gap-3 text-sm font-bold text-white uppercase sm:text-base">
+                <span
+                  class="h-3 w-3 rounded-full border border-red-900 bg-red-400 shadow-[0_0_8px_rgba(220,38,38,0.6)] sm:h-4 sm:w-4"
+                ></span>
+                {{ panel.title }}
+              </div>
             </div>
-          </div>
-          <div class="relative">
-            <textarea
-              v-model="shareCode"
-              placeholder="STANDBY..."
-              class="min-h-32 w-full rounded-xl border-[6px] border-stone-900 bg-emerald-700/80 px-4 py-3 font-mono text-sm text-stone-100 shadow-[inset_0_0_8px_rgba(0,0,0,1)] placeholder:text-stone-100 focus:ring-0 focus:outline-none"
-            />
-          </div>
-          <!-- 分享按鍵區 -->
-          <div class="flex gap-4">
-            <button
-              class="group relative flex-1 transition-all active:top-1"
-              :disabled="!shareCode.trim()"
-              @click="copyShareCode"
-            >
-              <div
-                class="rounded-md border border-stone-600 bg-stone-500 px-4 py-3 text-center text-sm font-bold tracking-widest text-stone-50 uppercase shadow-[0_6px_0_rgb(41,37,36)] group-active:shadow-[0_2px_0_rgb(41,37,36)]"
+
+            <div class="relative">
+              <textarea
+                v-model="panel.state.value"
+                :placeholder="panel.placeholder"
+                class="min-h-[100px] w-full rounded-xl border-4 border-stone-900 bg-emerald-700/80 px-3 py-2 font-mono text-xs text-stone-100 shadow-[inset_0_0_8px_rgba(0,0,0,1)] placeholder:text-stone-100 focus:ring-0 focus:outline-none sm:min-h-32 sm:border-[6px] sm:px-4 sm:py-3 sm:text-sm"
+              />
+            </div>
+
+            <div class="flex gap-3 sm:gap-4">
+              <button
+                type="button"
+                class="group relative flex-[2] cursor-pointer transition-all active:top-1 disabled:cursor-auto disabled:opacity-50"
+                :disabled="!panel.state.value.trim()"
+                @click="panel.action"
               >
-                Copy
-              </div>
-            </button>
-            <button class="group relative transition-all active:top-1" @click="shareCode = ''">
-              <div
-                class="rounded-md border border-stone-500 bg-stone-800 px-4 py-3 text-center text-sm font-bold text-stone-100 uppercase shadow-[0_6px_0_rgb(28,25,23)] group-active:shadow-[0_2px_0_rgb(41,37,36)]"
+                <div
+                  class="rounded-md border border-stone-600 bg-stone-500 py-2.5 text-center text-xs font-bold tracking-widest text-stone-50 uppercase shadow-[0_4px_0_rgb(41,37,36)] group-active:shadow-[0_2px_0_rgb(41,37,36)] sm:px-4 sm:py-3 sm:text-sm sm:shadow-[0_6px_0_rgb(41,37,36)]"
+                >
+                  {{ panel.actionLabel }}
+                </div>
+              </button>
+              <button
+                type="button"
+                class="group relative flex-1 cursor-pointer transition-all active:top-1"
+                @click="panel.state.value = ''"
               >
-                clear
-              </div>
-            </button>
+                <div
+                  class="rounded-md border border-stone-500 bg-stone-800 py-2.5 text-center text-xs font-bold text-stone-100 uppercase shadow-[0_4px_0_rgb(28,25,23)] group-active:shadow-[0_2px_0_rgb(41,37,36)] sm:px-4 sm:py-3 sm:text-sm sm:shadow-[0_2px_0_rgb(28,25,23)]"
+                >
+                  clear
+                </div>
+              </button>
+            </div>
           </div>
         </div>
 
-        <div class="space-y-4">
-          <div class="flex items-center justify-between px-1">
-            <div class="flex items-center gap-3 font-bold text-white uppercase">
-              <span
-                class="h-4 w-4 rounded-full border border-red-900 bg-red-400 shadow-[0_0_8px_rgba(220,38,38,0.6)]"
-              ></span>
-              匯入
-            </div>
+        <div class="flex items-center justify-between px-2 text-stone-700 sm:px-4">
+          <div class="flex gap-1.5 sm:gap-2">
+            <div v-for="i in 2" class="h-1.5 w-1.5 rounded-full bg-stone-900 shadow-inner sm:h-2 sm:w-2"></div>
           </div>
-          <div class="relative">
-            <textarea
-              v-model="importCode"
-              placeholder="AWAITING..."
-              class="min-h-32 w-full rounded-xl border-[6px] border-stone-900 bg-emerald-700/80 px-4 py-3 font-mono text-sm text-stone-100 shadow-[inset_0_0_8px_rgba(0,0,0,1)] placeholder:text-stone-100 focus:ring-0 focus:outline-none"
-            />
+          <div class="font-mono text-[10px] sm:text-sm">WORKSHOP</div>
+          <div class="flex gap-1.5 sm:gap-2">
+            <div v-for="i in 2" class="h-1.5 w-1.5 rounded-full bg-stone-900 shadow-inner sm:h-2 sm:w-2"></div>
           </div>
-          <!-- 分享按鍵區 -->
-          <div class="flex gap-4">
-            <button
-              class="group relative flex-1 transition-all active:top-1"
-              :disabled="!importCode.trim()"
-              @click="doImport"
-            >
-              <div
-                class="rounded-md border border-stone-600 bg-stone-500 px-4 py-3 text-center text-sm font-bold tracking-widest text-stone-50 uppercase shadow-[0_6px_0_rgb(41,37,36)] group-active:shadow-[0_2px_0_rgb(41,37,36)]"
-              >
-                IMPORT
-              </div>
-            </button>
-            <button class="group relative transition-all active:top-1" @click="importCode = ''">
-              <div
-                class="rounded-md border border-stone-500 bg-stone-800 px-4 py-3 text-center text-sm font-bold text-stone-100 uppercase shadow-[0_6px_0_rgb(28,25,23)] group-active:shadow-[0_2px_0_rgb(41,37,36)]"
-              >
-                clear
-              </div>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div class="flex items-center justify-between px-4">
-        <div class="flex gap-2">
-          <div class="h-2 w-2 rounded-full bg-stone-900 shadow-inner"></div>
-          <div class="h-2 w-2 rounded-full bg-stone-900 shadow-inner"></div>
-        </div>
-        <div class="font-mono text-sm text-stone-700">WORKSHOP</div>
-        <div class="flex gap-2">
-          <div class="h-2 w-2 rounded-full bg-stone-900 shadow-inner"></div>
-          <div class="h-2 w-2 rounded-full bg-stone-900 shadow-inner"></div>
         </div>
       </div>
     </div>

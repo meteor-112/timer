@@ -1,17 +1,17 @@
 <!-- 資訊頁 -->
 <script setup lang="ts">
 import { RouterLink } from 'vue-router';
-import { Star, StarIcon } from 'lucide-vue-next';
+import { StarIcon } from 'lucide-vue-next';
 </script>
 <template>
-  <section class="bg-[#F0F0F0] p-8">
+  <div class="flex min-h-full flex-col px-6 py-4 sm:p-8">
     <!-- 標題 -->
-    <section class="mx-auto mb-8 max-w-2xl text-center">
+    <section class="mb-4 sm:mb-8 max-w-2xl text-center">
       <h2 class="text-md font-bold text-[#4a4a4a] md:text-3xl md:text-lg">關於本站</h2>
       <p class="md:text-md mt-2 text-sm text-[#999]">About & Credits</p>
     </section>
 
-    <div class="mx-auto flex max-w-2xl flex-col gap-6">
+    <div class="flex w-full max-w-2xl flex-1 flex-col gap-4 sm:gap-6">
       <!-- 製作者 -->
       <section
         class="rounded-[32px] border border-gray-50 bg-white p-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)] md:px-8 md:py-6"
@@ -67,9 +67,9 @@ import { Star, StarIcon } from 'lucide-vue-next';
         </RouterLink>
       </section>
 
-      <p class="text-center text-sm text-[#bbb]">
-        © 2026 Sound Collector. <br class="md:hidden" />All rights reserved.
+      <p class="mt-auto text-center text-sm text-[#bbb]">
+        © 2026 Sound Collector. <br class="sm:hidden" />All rights reserved.
       </p>
     </div>
-  </section>
+  </div>
 </template>

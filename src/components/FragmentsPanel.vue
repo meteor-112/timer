@@ -10,13 +10,15 @@ import { useFragmentsStore } from '@/stores/fragments';
 const fragments = useFragmentsStore();
 
 /**
- * 計算屬性：格式化收集摘要文字
- * 依賴 fragments.collectionSummary，當 Store 資料更新時自動重新計算
+ * 計算屬性：解構碎片總數與解鎖數量
  */
-const summaryText = computed(() => {
-  const s = fragments.collectionSummary;
+const summary = computed(() => {
+  const { unlockedCount } = fragments.collectionSummary;
   const all = FRAGMENT_TYPES.length;
-  return `已解鎖 ${s.unlockedCount}/${all} 個音軌`;
+  return {
+    unlockedCount,
+    all,
+  };
 });
 
 /**
@@ -121,8 +123,12 @@ onUnmounted(() => stopListening());
 </script>
 
 <template>
-  <section class="px-5 py-2">
-    <div class="md:text-md py-2 text-sm">收集進度：{{ summaryText }}</div>
+  <div class="px-6 py-4 sm:px-8">
+    <p class="md:text-md py-2 text-sm">
+      收集進度：已解鎖
+      <span class="font-bold text-blue-500"> {{ summary.unlockedCount }}/{{ summary.all }} </span>
+      個音軌
+    </p>
 
     <!-- 音軌列表 -->
     <div class="mt-2 grid grid-cols-1 gap-3 pb-2 sm:grid-cols-2">
@@ -170,5 +176,5 @@ onUnmounted(() => stopListening());
         </div>
       </div>
     </div>
-  </section>
+  </div>
 </template>
