@@ -108,7 +108,7 @@ watch(
   <div class="relative flex min-h-screen flex-col overflow-hidden bg-[#E0E1DD]">
     <header class="absolute z-10 px-6 pt-6 pb-2">
       <h1 class="font-display text-lg font-semibold tracking-tight md:text-xl">專注時光</h1>
-      <p class="text-muted-foreground mt-0.5 text-sm">收集聲音碎片，創造屬於你的音樂</p>
+      <p class="sm:text-md mt-0.5 text-sm">收集聲音碎片，創造屬於你的音樂</p>
     </header>
 
     <main class="relative z-10 flex flex-1 items-center justify-center px-6 pt-4 md:pt-0">
@@ -118,41 +118,51 @@ watch(
     <button
       type="button"
       @click="isPlayerOpen = true"
-      class="fixed bottom-6 left-6 z-40 flex h-12 w-12 cursor-pointer items-center justify-center rounded-2xl border-2 border-slate-700 bg-slate-800 text-white shadow-lg transition-all active:scale-95 lg:hidden"
+      class="fixed bottom-6 left-6 z-40 flex h-12 w-12 cursor-pointer items-center justify-center rounded-2xl border-2 border-slate-700 bg-slate-800 text-white shadow-lg transition-transform active:scale-95 lg:hidden"
       :class="{ 'pointer-events-none opacity-0': isPlayerOpen }"
     >
       <Music class="h-6 w-6" />
     </button>
 
+    <!-- Desktop Player -->
     <div class="fixed bottom-6 left-6 z-40 hidden lg:flex">
       <PlayerBar />
     </div>
 
-    <Teleport to="body">
-      <Transition
-        enter-active-class="transition duration-300 ease-out"
-        enter-from-class="opacity-0"
-        enter-to-class="opacity-100"
-        leave-active-class="transition duration-200 ease-in"
-        leave-from-class="opacity-100"
-        leave-to-class="opacity-0"
+    <!-- 功能面板按鈕區 -->
+    <div
+      class="fixed top-1/2 right-2 z-40 flex -translate-y-1/2 flex-col gap-3 sm:right-6"
+      role="group"
+      aria-label="功能選單"
+    >
+      <button
+        v-for="item in navItems"
+        :key="`nav-${item.key}`"
+        type="button"
+        @click="openPanel(item.key)"
+        class="focus:ring-highlight flex h-12 w-12 cursor-pointer items-center justify-center rounded-2xl border-2 border-slate-600 bg-white/70 backdrop-blur-sm transition-all hover:bg-white/50 active:scale-95 md:h-20 md:w-20"
+        :title="item.label"
+        :aria-label="`開啟${item.label}面板`"
       >
+        <component :is="item.icon" :class="['h-5 w-5 md:h-10 md:w-10', item.iconColor]" />
+      </button>
+    </div>
+
+    <Teleport to="body">
+      <!-- Player (Mobile) -->
+      <!-- Overlay -->
+      <Transition name="fade">
         <div
           v-if="isPlayerOpen"
+          class="fixed inset-0 z-50 bg-black/20 backdrop-blur-[2px] lg:hidden"
           @click="isPlayerOpen = false"
-          class="fixed inset-0 z-50 bg-black/20 backdrop-blur-sm lg:hidden"
         />
       </Transition>
 
-      <Transition
-        enter-active-class="transition duration-300 ease-out"
-        enter-from-class="opacity-0 -translate-x-full"
-        enter-to-class="opacity-100 translate-x-0"
-        leave-active-class="transition duration-200 ease-in"
-        leave-from-class="opacity-100 translate-x-0"
-        leave-to-class="opacity-0 -translate-x-full"
-      >
-        <div v-if="isPlayerOpen" class="fixed bottom-6 left-6 z-50 flex flex-col gap-2 lg:hidden">
+      <!-- Player Panel -->
+      <Transition name="slide-left">
+        <div v-if="isPlayerOpen" class="fixed bottom-10 left-4.5 z-60 flex flex-col gap-2 lg:hidden">
+          <!-- 關閉 -->
           <button
             @click="isPlayerOpen = false"
             class="self-end rounded-full bg-slate-800/50 p-1.5 text-slate-300 active:bg-slate-800"
@@ -162,75 +172,132 @@ watch(
           <PlayerBar />
         </div>
       </Transition>
-    </Teleport>
 
-    <div class="fixed top-1/2 right-4 z-40 flex -translate-y-1/2 flex-col gap-3" role="group" aria-label="功能選單">
-      <button
-        v-for="item in navItems"
-        :key="item.key"
-        type="button"
-        @click="openPanel(item.key)"
-        class="focus:ring-highlight flex h-12 w-12 cursor-pointer items-center justify-center rounded-2xl border-2 border-slate-600 bg-white/70 backdrop-blur-sm transition-all hover:bg-white/50 active:scale-95 md:h-20 md:w-20"
-        :title="item.label"
-        :aria-label="`開啟${item.label}面板`"
-      >
-        <component :is="item.icon" :class="['h-5 w-5 md:h-8 md:w-8', item.iconColor]" />
-      </button>
-    </div>
-
-    <Teleport to="body">
-      <Transition
-        enter-active-class="transition-opacity duration-300"
-        enter-from-class="opacity-0"
-        enter-to-class="opacity-100"
-        leave-active-class="transition-opacity duration-200"
-        leave-from-class="opacity-100"
-        leave-to-class="opacity-0"
-      >
+      <!-- Drawer -->
+      <!-- Overlay -->
+      <Transition name="fade">
         <div v-if="drawerOpen" class="fixed inset-0 z-50 bg-black/10 backdrop-blur-[2px]" @click="drawerOpen = false" />
       </Transition>
 
-      <aside
-        class="fixed top-0 right-0 z-50 h-dvh w-[92vw] max-w-[700px] transition-transform duration-300 ease-in-out"
-        :class="drawerOpen ? 'translate-x-0' : 'translate-x-full'"
-        aria-label="右側面板"
-      >
-        <div class="h-full p-5">
+      <!-- Panel -->
+      <Transition name="slide-right">
+        <aside v-if="drawerOpen" class="fixed top-0 right-0 z-60 h-dvh w-[92vw] max-w-[700px]" aria-label="右側面板">
           <div class="card flex h-full flex-col overflow-hidden">
-            <section class="border-theme flex items-center justify-between gap-3 border-b px-5 py-3">
-              <h2 class="text-lg font-medium">{{ currentTabInfo?.label }}</h2>
+            <section class="border-theme flex items-center justify-between gap-3 border-b px-3.5 py-3 sm:px-5 sm:py-4">
+              <h2 class="text-lg sm:text-xl">{{ currentTabInfo?.label }}</h2>
               <button
                 type="button"
-                class="cursor-pointer rounded-full p-1 hover:bg-black/5"
-                aria-label="關閉面板"
                 @click="drawerOpen = false"
+                class="cursor-pointer rounded-full p-1.5 hover:bg-black/5"
+                aria-label="關閉面板"
               >
-                <X class="h-6 w-6" />
+                <X class="h-6 w-6 sm:h-8 sm:w-8" />
               </button>
             </section>
 
             <div class="flex-1 overflow-y-auto">
-              <component :is="currentPanelComponent" v-if="drawerOpen" />
+              <KeepAlive>
+                <component :is="currentPanelComponent" v-if="drawerOpen" />
+              </KeepAlive>
             </div>
           </div>
-        </div>
-      </aside>
+        </aside>
+      </Transition>
     </Teleport>
 
-    <Transition
-      enter-active-class="transition duration-300 ease-out"
-      enter-from-class="translate-y-4 opacity-0"
-      enter-to-class="translate-y-0 opacity-100"
-      leave-active-class="transition duration-200 ease-in"
-      leave-from-class="opacity-100"
-      leave-to-class="opacity-0"
-    >
+    <!-- Toast -->
+    <Transition name="slide-up">
       <div
         v-if="toast"
-        class="fixed top-10 left-1/2 z-[60] -translate-x-1/2 rounded-full bg-slate-800 px-4 py-2 text-sm text-white shadow-xl"
+        class="fixed top-10 left-1/2 z-70 -translate-x-1/2 rounded-full bg-slate-800 px-4 py-2 text-sm text-white shadow-xl"
       >
         {{ toast.text }}
       </div>
     </Transition>
   </div>
 </template>
+<style>
+/* fade */
+.fade-enter-active {
+  transition: opacity 0.3s ease-out;
+}
+.fade-leave-active {
+  transition: opacity 0.2s ease-in;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+.fade-enter-to,
+.fade-leave-from {
+  opacity: 1;
+}
+
+/* slide-left */
+.slide-left-enter-active {
+  transition:
+    transform 0.3s ease-out,
+    opacity 0.3s ease-out;
+}
+.slide-left-leave-active {
+  transition:
+    transform 0.2s ease-in,
+    opacity 0.2s ease-in;
+}
+
+.slide-left-enter-from,
+.slide-left-leave-to {
+  opacity: 0;
+  transform: translateX(-100%);
+}
+.slide-left-enter-to,
+.slide-left-leave-from {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* slide-right */
+.slide-right-enter-active {
+  transition:
+    transform 0.3s ease-out,
+    opacity 0.3s ease-out;
+}
+.slide-right-leave-active {
+  transition:
+    transform 0.2s ease-in,
+    opacity 0.2s ease-in;
+}
+
+.slide-right-enter-from,
+.slide-right-leave-to {
+  transform: translateX(100%);
+}
+.slide-right-enter-to,
+.slide-right-leave-from {
+  transform: translateX(0);
+}
+
+/* slide-up */
+.slide-up-enter-active {
+  transition:
+    transform 0.3s ease-out,
+    opacity 0.3s ease-out;
+}
+.slide-up-leave-active {
+  transition:
+    transform 0.2s ease-in,
+    opacity 0.2s ease-in;
+}
+
+.slide-up-enter-from,
+.slide-up-leave-to {
+  opacity: 0;
+  transform: translateY(16px);
+}
+.slide-up-enter-to,
+.slide-up-leave-from {
+  opacity: 1;
+  transform: translateY(0);
+}
+</style>

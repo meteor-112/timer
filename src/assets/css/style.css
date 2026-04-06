@@ -51,10 +51,7 @@ h2 {
 
 .card {
   background: #f1f1f1fa;
-  border: 1px solid rgba(79, 93, 93, 0.12);
-  border-radius: 18px;
-  box-shadow: 0 10px 30px rgba(79, 93, 93, 0.06);
-  backdrop-filter: blur(10px);
+  box-shadow: -5px 0px 20px rgba(79, 93, 93, 0.5);
 }
 
 .accent-pill {

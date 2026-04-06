@@ -23,8 +23,8 @@ withDefaults(defineProps<Props>(), {
 </script>
 
 <template>
-  <div class="min-h-screen bg-[#E0E1DD] px-4 py-10 font-sans text-gray-800 antialiased sm:px-6 lg:px-8">
-    <div class="mx-auto max-w-4xl overflow-hidden rounded-2xl border border-gray-200 bg-white p-12 shadow-sm">
+  <div class="min-h-screen bg-[#E0E1DD] px-4 py-4 font-sans text-gray-800 antialiased sm:px-6 sm:py-10 lg:px-8">
+    <div class="mx-auto max-w-4xl overflow-hidden rounded-2xl border border-gray-200 bg-white p-8 shadow-sm sm:p-12">
       <header class="mb-4">
         <h1 class="mb-4 text-3xl font-bold tracking-tight md:text-4xl">隱私權政策</h1>
         <div class="flex flex-col gap-2 text-sm text-slate-700">
