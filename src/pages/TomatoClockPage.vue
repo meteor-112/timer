@@ -91,7 +91,7 @@ watch(
     if (!newVal || !fragmentsStore.lastCollected) return;
 
     const label = fragmentsStore.getFragmentLabel(fragmentsStore.lastCollected.fragmentId);
-    toast.value = { text: `獲得碎片：${label}（+1）`, at: Date.now() };
+    toast.value = { text: `獲得碎片：${label}`, at: Date.now() };
 
     // 清除舊計時器
     if (toastTimer) clearTimeout(toastTimer);
@@ -161,7 +161,7 @@ watch(
 
       <!-- Player Panel -->
       <Transition name="slide-left">
-        <div v-if="isPlayerOpen" class="fixed bottom-10 left-4.5 z-60 flex flex-col gap-2 lg:hidden">
+        <div v-show="isPlayerOpen" class="fixed bottom-10 left-[18px] sm:left-8 z-60 flex flex-col gap-2 lg:hidden">
           <!-- 關閉 -->
           <button
             @click="isPlayerOpen = false"
@@ -181,7 +181,11 @@ watch(
 
       <!-- Panel -->
       <Transition name="slide-right">
-        <aside v-if="drawerOpen" class="fixed top-0 right-0 z-60 h-dvh w-[92vw] max-w-[700px]" aria-label="右側面板">
+        <aside
+          class="fixed top-0 right-0 z-60 h-dvh w-[92vw] max-w-[700px] transition-transform duration-300"
+          :class="drawerOpen ? 'translate-x-0' : 'translate-x-full'"
+          aria-label="右側面板"
+        >
           <div class="card flex h-full flex-col overflow-hidden">
             <section class="border-theme flex items-center justify-between gap-3 border-b px-3.5 py-3 sm:px-5 sm:py-4">
               <h2 class="text-lg sm:text-xl">{{ currentTabInfo?.label }}</h2>
@@ -197,7 +201,7 @@ watch(
 
             <div class="flex-1 overflow-y-auto">
               <KeepAlive>
-                <component :is="currentPanelComponent" v-if="drawerOpen" />
+                <component :is="currentPanelComponent" />
               </KeepAlive>
             </div>
           </div>
@@ -208,10 +212,10 @@ watch(
     <!-- Toast -->
     <Transition name="slide-up">
       <div
-        v-if="toast"
-        class="fixed top-10 left-1/2 z-70 -translate-x-1/2 rounded-full bg-slate-800 px-4 py-2 text-sm text-white shadow-xl"
+        v-show="toast"
+        class="fixed top-1/3 left-1/2 z-70 -translate-x-1/2 rounded-3xl bg-slate-800 px-5.5 py-2 text-center font-bold text-white shadow-lg"
       >
-        {{ toast.text }}
+        {{ toast?.text }}
       </div>
     </Transition>
   </div>
@@ -228,6 +232,7 @@ watch(
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+  display: block;
 }
 .fade-enter-to,
 .fade-leave-from {
