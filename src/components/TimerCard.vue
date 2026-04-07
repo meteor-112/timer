@@ -188,7 +188,7 @@ async function handleResume() {
         custom-class="p-2 rounded-full"
         :disabled="!canSwitchMode"
         title="減少五分鐘"
-        @click="canSwitchMode && (downMinutes = Math.max(5, downMinutes - 5))"
+        @click="canSwitchMode && (downMinutes = Math.max(25, downMinutes - 5))"
         aria-label="減少五分鐘"
       />
 

@@ -5,7 +5,7 @@ import Swal from 'sweetalert2';
 export const MySwal = Swal.mixin({
   customClass: {
     confirmButton:
-      'bg-gray-700 border-2 border-stone-700 text-stone-200 px-6 py-2 rounded-xl mx-2 hover:bg-gray-800 transition-all active:scale-95 cursor-pointer',
+      'bg-gray-700 border-2 border-stone-700 text-stone-200 font-bold px-6 py-2 rounded-xl mx-2 hover:bg-gray-800 transition-all active:scale-95 cursor-pointer',
     cancelButton:
       'bg-white border-2 border-stone-700 text-stone-700 px-6 py-2 rounded-xl mx-2 hover:bg-stone-100 transition-all cursor-pointer',
     popup: 'timer-swal-popup rounded-2xl border-none shadow-xl',
@@ -56,7 +56,7 @@ export async function runTimerCompletionAlerts(
     } else {
       await MySwal.fire({
         title: '解鎖成功',
-        html: `已解鎖「${label}」唱片<br/><span class="text-sm opacity-80">完整音軌已可播放</span>`,
+        html: `已解鎖「${label}」唱片<br/><span class="mt-2 text-sm opacity-80">完整音軌已可播放</span>`,
         confirmButtonText: isLast ? '關閉' : '繼續',
       });
     }

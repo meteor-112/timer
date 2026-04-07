@@ -1,52 +1,87 @@
 export type FragmentType = {
-  id: string
-  label: string
-  color: string
-  baseFrequencyHz: number
+  id: string;
+  label: string;
+  color: string;
+  baseFrequencyHz: number;
   // 使用同一個 mp3 檔來代表「碎片」與「音軌」；碎片會截到前 5 秒播放
-  trackAudioUrl: string
-}
+  trackAudioUrl: string;
+};
 
-export const FOCUS_INTERVAL_MINUTES = 5
+export const FOCUS_INTERVAL_MINUTES = 25; // 每一階段專注的基本單位
 
-export const REMINDER_DURATION_MS = 3_000
-export const FRAGMENT_DURATION_MS = 5_000
-export const NOTE_MAX_DURATION_MS = 30_000
+export const REMINDER_DURATION_MS = 3_000; // 提醒音效播放長度 (3秒)
+export const FRAGMENT_DURATION_MS = 5_000; // 碎片預覽播放長度 (5秒)
+export const NOTE_MAX_DURATION_MS = 30_000; // 最終音軌合成後的預計總長度 (30秒)
 
-// 提醒音：每次 25 分鐘播放一次（3 秒）
-export const REMINDER_AUDIO_URL = '/audio/reminder.mp3'
+/** 提醒音檔：專注達成（例如滿 25 分鐘）時播放 */
+export const REMINDER_AUDIO_URL = '/audio/reminder.mp3';
 
-// 這份 catalog 對應你放進 `public/audio/tracks/*.mp3` 的檔名。
-// 你如果檔名不同，請在這裡改成正確的 URL。
+/** * 聲音素材庫 (Catalog)
+ * 定義了所有可選的聲音類型及其物理屬性
+ */
 export const FRAGMENT_TYPES: FragmentType[] = [
-  { id: 'dawn', label: '鳥鳴', color: '#acd7ff', baseFrequencyHz: 220, trackAudioUrl: '/audio/tracks/birds.mp3' },
-  { id: 'mint', label: '吉他', color: '#97ce50', baseFrequencyHz: 247, trackAudioUrl: '/audio/tracks/guitar-1.mp3' },
-  { id: 'stone', label: '鋼琴', color: '#9cafaa', baseFrequencyHz: 196, trackAudioUrl: '/audio/tracks/piano-1.mp3' },
-  { id: 'teal', label: '雨', color: '#7fb2b0', baseFrequencyHz: 262, trackAudioUrl: '/audio/tracks/rain.mp3' },
-  { id: 'sky', label: '小提琴', color: '#9fc7e8', baseFrequencyHz: 294, trackAudioUrl: '/audio/tracks/violin-1.mp3' },
-  { id: 'lime', label: '海浪', color: '#a8e063', baseFrequencyHz: 330, trackAudioUrl: '/audio/tracks/wave.mp3' },
-]
+  { id: 'dawn', label: '鳥鳴', color: '#A2CD5A', baseFrequencyHz: 220, trackAudioUrl: '/audio/tracks/birds.mp3' },
+  { id: 'mint', label: '吉他', color: '#CD853F', baseFrequencyHz: 247, trackAudioUrl: '/audio/tracks/guitar-1.mp3' },
+  { id: 'stone', label: '鋼琴', color: '#1A1A1A', baseFrequencyHz: 196, trackAudioUrl: '/audio/tracks/piano-1.mp3' },
+  { id: 'teal', label: '雨', color: '#708090', baseFrequencyHz: 262, trackAudioUrl: '/audio/tracks/rain.mp3' },
+  { id: 'sky', label: '小提琴', color: '#A52A2A', baseFrequencyHz: 294, trackAudioUrl: '/audio/tracks/violin-1.mp3' },
+  { id: 'lime', label: '海浪', color: '#0077BE', baseFrequencyHz: 330, trackAudioUrl: '/audio/tracks/wave.mp3' },
+  { id: 'typing', label: '打字聲', color: '#36454F', baseFrequencyHz: 294, trackAudioUrl: '/audio/tracks/typing.mp3' },
+  { id: 'seagull', label: '海鷗', color: '#87CEEB', baseFrequencyHz: 330, trackAudioUrl: '/audio/tracks/seagull.mp3' },
+  { id: 'owl', label: '貓頭鷹', color: '#4B3621', baseFrequencyHz: 165, trackAudioUrl: '/audio/tracks/owl.mp3' },
+  { id: 'cricket', label: '蟲鳴', color: '#4F7942', baseFrequencyHz: 493, trackAudioUrl: '/audio/tracks/cricket.mp3' },
+  { id: 'flow', label: '溪流', color: '#5F9EA0', baseFrequencyHz: 220, trackAudioUrl: '/audio/tracks/flow.mp3' },
+  { id: 'wind', label: '風', color: '#BCC6CC', baseFrequencyHz: 196, trackAudioUrl: '/audio/tracks/wind.mp3' },
+  {
+    id: 'singingbowl',
+    label: '缽',
+    color: '#D4AF37',
+    baseFrequencyHz: 440,
+    trackAudioUrl: '/audio/tracks/singing-bowl.mp3',
+  },
+  { id: 'cello', label: '大提琴', color: '#5C4033', baseFrequencyHz: 146, trackAudioUrl: '/audio/tracks/cello.mp3' },
+  {
+    id: 'windchime',
+    label: '風鈴',
+    color: '#7FFFD4',
+    baseFrequencyHz: 500,
+    trackAudioUrl: '/audio/tracks/wind-chime.mp3',
+  },
+  { id: 'bubble', label: '泡泡', color: '#008080', baseFrequencyHz: 330, trackAudioUrl: '/audio/tracks/bubble.mp3' },
+  { id: 'thunder', label: '雷', color: '#FFD700', baseFrequencyHz: 130, trackAudioUrl: '/audio/tracks/thunder.mp3' },
+  {
+    id: 'campfire',
+    label: '營火',
+    color: '#E25822',
+    baseFrequencyHz: 174,
+    trackAudioUrl: '/audio/tracks/campfire.mp3',
+  },
+];
 
+/** 透過 ID 檢索特定的聲音配置 */
 export function getFragmentById(id: string): FragmentType | undefined {
-  return FRAGMENT_TYPES.find((f) => f.id === id)
+  return FRAGMENT_TYPES.find((f) => f.id === id);
 }
 
+// --- Web Audio 合成音效邏輯 ---
+
+/** 單個音符的屬性 */
 export type ToneStep = {
-  freqHz: number
-  durationMs: number
-  detuneCents?: number
-}
-
+  freqHz: number;
+  durationMs: number;
+  detuneCents?: number;
+};
+/** 旋律模式：定義一串音符如何組成一段短旋律 */
 export type TonePattern = {
   // 以 frequency + 短段 duration 來排程（fallback：找不到 mp3 時使用）
-  steps: ToneStep[]
-  wave?: OscillatorType
-  peakGain?: number
-}
+  steps: ToneStep[];
+  wave?: OscillatorType;
+  peakGain?: number;
+};
 
 export function makeFragmentPattern(fragmentId: string): TonePattern {
-  const frag = getFragmentById(fragmentId)
-  const base = frag?.baseFrequencyHz ?? 220
+  const frag = getFragmentById(fragmentId);
+  const base = frag?.baseFrequencyHz ?? 220;
   return {
     wave: 'triangle',
     peakGain: 0.22,
@@ -56,12 +91,12 @@ export function makeFragmentPattern(fragmentId: string): TonePattern {
       { freqHz: base * 1.5, durationMs: 170 },
       { freqHz: base * 0.95, durationMs: 120 },
     ],
-  }
+  };
 }
 
 export function makeNotePattern(noteId: string): TonePattern {
-  const frag = getFragmentById(noteId)
-  const base = frag?.baseFrequencyHz ?? 220
+  const frag = getFragmentById(noteId);
+  const base = frag?.baseFrequencyHz ?? 220;
   return {
     wave: 'sine',
     peakGain: 0.18,
@@ -74,12 +109,12 @@ export function makeNotePattern(noteId: string): TonePattern {
       { freqHz: base * 1.35, durationMs: 160 },
       { freqHz: base * 1.0, durationMs: 260 },
     ],
-  }
+  };
 }
 
 export function makeReminderPattern(index: number): TonePattern {
-  const base = 440
-  const freq = base * (index % 2 === 0 ? 1 : 1.12246)
+  const base = 440;
+  const freq = base * (index % 2 === 0 ? 1 : 1.12246);
   return {
     wave: 'sine',
     peakGain: 0.16,
@@ -88,19 +123,21 @@ export function makeReminderPattern(index: number): TonePattern {
       { freqHz: freq * 1.25, durationMs: 90 },
       { freqHz: freq * 0.9, durationMs: 120 },
     ],
-  }
+  };
 }
 
+// --- 錄製/作品配置 ---
+
+/** 定義使用者最後收集碎片後生成的「樂譜」 */
 export type RecordPattern = {
-  recordId: string
-  noteIds: string[]
+  recordId: string;
+  noteIds: string[];
   // 每拍的音長與步數，決定總長度是否接近 30 秒（fallback）
-  stepDurationMs: number
-  wave?: OscillatorType
-}
-
+  stepDurationMs: number;
+  wave?: OscillatorType;
+};
+/** 建立一份樂譜模式 */
 export function makeRecordPattern(recordId: string, noteIds: string[]): RecordPattern {
-  const stepDurationMs = 260
-  return { recordId, noteIds, stepDurationMs, wave: 'sine' }
+  const stepDurationMs = 260;
+  return { recordId, noteIds, stepDurationMs, wave: 'sine' };
 }
-
