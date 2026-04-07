@@ -125,9 +125,9 @@ onUnmounted(() => stopListening());
 <template>
   <div class="px-6 py-4 sm:px-8">
     <p class="md:text-md py-2 text-sm">
-      收集進度：已解鎖
+      Progress:
       <span class="font-bold text-blue-500"> {{ summary.unlockedCount }}/{{ summary.all }} </span>
-      個音軌
+      {{ summary.unlockedCount > 1 ? 'tracks' : 'track' }}
     </p>
 
     <!-- 音軌列表 -->
@@ -141,9 +141,9 @@ onUnmounted(() => stopListening());
             />
             <div>
               <div class="font-semibold">
-                {{ f.isDiscovered ? f.label : '未知' }}
+                {{ f.isDiscovered ? f.label : 'Unknown' }}
               </div>
-              <div class="text-xs text-gray-500">碎片 x{{ f.count }}</div>
+              <div class="text-xs text-gray-500">fragments x {{ f.count }}</div>
             </div>
           </div>
 
@@ -162,7 +162,7 @@ onUnmounted(() => stopListening());
             class="text-sm transition-colors duration-300"
             :class="f.isUnlocked ? 'text-green font-bold' : 'font-medium text-black opacity-60'"
           >
-            {{ f.isUnlocked ? '已解鎖' : '未解鎖' }}
+            {{ f.isUnlocked ? 'Released' : 'Unavailable' }}
           </p>
 
           <button

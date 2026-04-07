@@ -149,27 +149,27 @@ async function handleResume() {
       <button
         @click="switchMode('down')"
         :disabled="!canSwitchMode"
-        aria-label="切換至倒計時模式"
+        aria-label="switch to count down mode"
         class="relative z-10 rounded-full px-6 py-1.5 font-bold transition-colors md:px-8 md:py-2 md:text-lg"
         :class="[
           timer.mode === 'down' ? 'text-gray-900' : 'text-gray-500 hover:text-gray-700',
           !canSwitchMode ? 'cursor-not-allowed opacity-40' : 'cursor-pointer',
         ]"
       >
-        倒計時
+        Countdown
       </button>
 
       <button
         @click="switchMode('up')"
         :disabled="!canSwitchMode"
-        aria-label="切換至正計時模式"
+        aria-label="switch to count up mode"
         class="relative z-10 rounded-full px-6 py-1.5 font-bold transition-colors md:px-8 md:py-2 md:text-lg"
         :class="[
           timer.mode === 'up' ? 'text-gray-900' : 'text-gray-500 hover:text-gray-700',
           !canSwitchMode ? 'cursor-not-allowed opacity-40' : 'cursor-pointer',
         ]"
       >
-        正計時
+        Count-up
       </button>
     </div>
 
@@ -187,9 +187,9 @@ async function handleResume() {
         icon-size="md"
         custom-class="p-2 rounded-full"
         :disabled="!canSwitchMode"
-        title="減少五分鐘"
+        title="Subtract 5 minutes"
         @click="canSwitchMode && (downMinutes = Math.max(25, downMinutes - 5))"
-        aria-label="減少五分鐘"
+        aria-label="Subtract 5 minutes"
       />
 
       <span :class="{ 'text-gray-400': !canSwitchMode }" aria-live="polite"> {{ downMinutes }} min </span>
@@ -200,9 +200,9 @@ async function handleResume() {
         icon-size="md"
         custom-class="p-2 rounded-full"
         :disabled="!canSwitchMode"
-        title="增加五分鐘"
+        title="Add 5 minutes"
         @click="canSwitchMode && (downMinutes = Math.min(120, downMinutes + 5))"
-        aria-label="增加五分鐘"
+        aria-label="Add 5 minutes"
       />
     </div>
     <!-- 聲波球動畫 -->
@@ -219,14 +219,14 @@ async function handleResume() {
         variant="none"
         iconSize="xl"
         custom-class="p-3 rounded-full"
-        :title="timer.status === 'paused' ? '繼續計時' : '開始計時'"
-        :aria-label="timer.status === 'paused' ? '繼續計時' : '開始計時'"
+        :title="timer.status === 'paused' ? 'Resume' : 'Start'"
+        :aria-label="timer.status === 'paused' ? 'Resume' : 'Start'"
         @click="
           timer.status === 'paused' ? handleResume() : timer.mode === 'down' ? warmAndStartDown() : warmAndStartUp()
         "
       >
         <template #default>
-          <span class="sr-only">{{ timer.status === 'paused' ? '繼續' : '開始' }}</span>
+          <span class="sr-only">{{ timer.status === 'paused' ? 'Resume' : 'Start' }}</span>
         </template>
       </ActionIconButton>
 
@@ -236,8 +236,8 @@ async function handleResume() {
         variant="none"
         iconSize="xl"
         custom-class="rounded-full p-3"
-        title="暫停計時"
-        aria-label="暫停計時"
+        title="Pause"
+        aria-label="Pause"
         @click="timer.pause()"
       />
       <ActionIconButton
@@ -246,8 +246,8 @@ async function handleResume() {
         variant="none"
         iconSize="md"
         custom-class="p-3 rounded-full"
-        title="重置計時"
-        aria-label="重置計時器"
+        title="Reset"
+        aria-label="Reset"
         @click="handleResetToInitial"
       />
     </div>

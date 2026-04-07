@@ -23,10 +23,10 @@ const acquiredNotes = computed(() => FRAGMENT_TYPES.filter((f) => fragments.getC
 // 當前選中的標籤名稱
 const selectedLabel = computed((): string => {
   if (kind.value === 'note') {
-    return fragments.getFragmentLabel(selectedNoteId.value) || '未選擇音效';
+    return fragments.getFragmentLabel(selectedNoteId.value) || 'SELECT A TRACK';
   }
   const rec = music.getRecordById(selectedRecordId.value);
-  return rec?.name ?? '未選擇唱片';
+  return rec?.name ?? 'SELECT A MUSIC';
 });
 
 // 綁定背景播放狀態

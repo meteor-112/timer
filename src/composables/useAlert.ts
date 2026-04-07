@@ -36,9 +36,9 @@ export async function runTimerCompletionAlerts(
 ): Promise<void> {
   const hasSteps = items.length > 0;
   await MySwal.fire({
-    title: '恭喜！',
-    html: `您已專注 ${minutes} 分鐘！`,
-    confirmButtonText: hasSteps ? '繼續' : '關閉',
+    title: 'Congratulations!',
+    html: `You’ve stayed focused for ${minutes} minutes!`,
+    confirmButtonText: hasSteps ? 'Next' : 'Close',
   });
 
   for (let i = 0; i < items.length; i++) {
@@ -49,15 +49,15 @@ export async function runTimerCompletionAlerts(
 
     if (item.kind === 'fragment') {
       await MySwal.fire({
-        title: '獲得碎片',
+        title: 'Fragment Acquired',
         text: label,
-        confirmButtonText: isLast ? '關閉' : '繼續',
+        confirmButtonText: isLast ? 'Close' : 'Next',
       });
     } else {
       await MySwal.fire({
-        title: '解鎖成功',
-        html: `已解鎖「${label}」唱片<br/><span class="mt-2 text-sm opacity-80">完整音軌已可播放</span>`,
-        confirmButtonText: isLast ? '關閉' : '繼續',
+        title: 'Fragment Secured!',
+        html: `Unlocked: "${label}" Track<br/><span class="mt-2 text-sm opacity-80">The full soundscape is ready for use.</span>`,
+        confirmButtonText: isLast ? 'Close' : 'Next',
       });
     }
   }

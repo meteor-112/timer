@@ -28,35 +28,35 @@ interface NavItem {
 const navItems: NavItem[] = [
   {
     key: 'fragments',
-    label: '聲音碎片',
+    label: 'Sound Fragments',
     icon: Sparkles,
     component: FragmentsPanel,
     iconColor: 'text-amber-500', // 琥珀金
   },
   {
     key: 'music',
-    label: '音樂工坊',
+    label: 'Music Workshop',
     icon: CassetteTape,
     component: MusicStudioPanel,
     iconColor: 'text-indigo-500', // 靛藍
   },
   {
     key: 'world',
-    label: '世界',
+    label: 'World',
     icon: Globe,
     component: WorldRoomPanel,
     iconColor: 'text-emerald-500', // 翡翠綠
   },
   {
     key: 'profile',
-    label: '個人',
+    label: 'MyPage',
     icon: User,
     component: ProfilePanel,
     iconColor: 'text-rose-500', // 玫瑰紅
   },
   {
     key: 'info',
-    label: '資訊',
+    label: 'Information',
     icon: Info,
     component: InfoPage,
     iconColor: 'text-slate-500', // 板岩灰
@@ -91,7 +91,7 @@ watch(
     if (!newVal || !fragmentsStore.lastCollected) return;
 
     const label = fragmentsStore.getFragmentLabel(fragmentsStore.lastCollected.fragmentId);
-    toast.value = { text: `獲得碎片：${label}`, at: Date.now() };
+    toast.value = { text: `Fragment Acquired:${label}`, at: Date.now() };
 
     // 清除舊計時器
     if (toastTimer) clearTimeout(toastTimer);
@@ -107,8 +107,8 @@ watch(
 <template>
   <div class="relative flex min-h-screen flex-col overflow-hidden bg-[#E0E1DD]">
     <header class="absolute z-10 px-6 pt-6 pb-2">
-      <h1 class="font-display text-lg font-semibold tracking-tight md:text-xl">專注時光</h1>
-      <p class="sm:text-md mt-0.5 text-sm">收集聲音碎片，創造屬於你的音樂</p>
+      <h1 class="font-display text-lg font-semibold tracking-tight md:text-xl">Sound Collector</h1>
+      <p class="sm:text-md mt-0.5 text-sm">Gather sound fragments and craft your own melodies.</p>
     </header>
 
     <main class="relative z-10 flex flex-1 items-center justify-center px-6 pt-4 md:pt-0">
@@ -133,7 +133,7 @@ watch(
     <div
       class="fixed top-1/2 right-2 z-40 flex -translate-y-1/2 flex-col gap-3 sm:right-6"
       role="group"
-      aria-label="功能選單"
+      aria-label="Menu"
     >
       <button
         v-for="item in navItems"
@@ -142,7 +142,7 @@ watch(
         @click="openPanel(item.key)"
         class="focus:ring-highlight flex h-12 w-12 cursor-pointer items-center justify-center rounded-2xl border-2 border-slate-600 bg-white/70 backdrop-blur-sm transition-all hover:bg-white/50 active:scale-95 md:h-20 md:w-20"
         :title="item.label"
-        :aria-label="`開啟${item.label}面板`"
+        :aria-label="`Open${item.label}`"
       >
         <component :is="item.icon" :class="['h-5 w-5 md:h-10 md:w-10', item.iconColor]" />
       </button>
@@ -161,7 +161,7 @@ watch(
 
       <!-- Player Panel -->
       <Transition name="slide-left">
-        <div v-show="isPlayerOpen" class="fixed bottom-10 left-[18px] sm:left-8 z-60 flex flex-col gap-2 lg:hidden">
+        <div v-show="isPlayerOpen" class="fixed bottom-10 left-[18px] z-60 flex flex-col gap-2 sm:left-8 lg:hidden">
           <!-- 關閉 -->
           <button
             @click="isPlayerOpen = false"
@@ -184,7 +184,7 @@ watch(
         <aside
           class="fixed top-0 right-0 z-60 h-dvh w-[92vw] max-w-[700px] transition-transform duration-300"
           :class="drawerOpen ? 'translate-x-0' : 'translate-x-full'"
-          aria-label="右側面板"
+          aria-label="Side Panel"
         >
           <div class="card flex h-full flex-col overflow-hidden">
             <section class="border-theme flex items-center justify-between gap-3 border-b px-3.5 py-3 sm:px-5 sm:py-4">
@@ -193,7 +193,7 @@ watch(
                 type="button"
                 @click="drawerOpen = false"
                 class="cursor-pointer rounded-full p-1.5 hover:bg-black/5"
-                aria-label="關閉面板"
+                aria-label="Close Panel"
               >
                 <X class="h-6 w-6 sm:h-8 sm:w-8" />
               </button>

@@ -131,7 +131,7 @@ export const useMusicStore = defineStore('music', () => {
     try {
       const snap = await get(dbRef(db, remotePinnedPath(uid)));
       const v = snap.val() as Partial<RemotePinned> | null;
-      
+
       // 若遠端無資料，標記已同步並結束
       if (!v || !Array.isArray(v.noteIds) || v.noteIds.length === 0) {
         hydratedPinnedUid = uid;
@@ -141,14 +141,13 @@ export const useMusicStore = defineStore('music', () => {
       suppressRemoteWrite = true;
 
       // 解析遠端資料的 Mix 內容
-      const remoteMix = (Array.isArray(v.mix) && v.mix.length) 
-        ? (v.mix as MusicTrackMix[]).slice(0, 5)
-        : legacyMixFromNoteIds(v.noteIds.filter(Boolean).slice(0, 5));
+      const remoteMix =
+        Array.isArray(v.mix) && v.mix.length
+          ? (v.mix as MusicTrackMix[]).slice(0, 5)
+          : legacyMixFromNoteIds(v.noteIds.filter(Boolean).slice(0, 5));
 
       // 檢查本地是否已經有完全相同的 Mix 內容（避免重複創建）
-      const existingRecord = musicRecords.value.find(r => 
-        JSON.stringify(r.mix) === JSON.stringify(remoteMix)
-      );
+      const existingRecord = musicRecords.value.find((r) => JSON.stringify(r.mix) === JSON.stringify(remoteMix));
 
       if (existingRecord) {
         // 若已存在，僅設定置頂 ID
@@ -218,7 +217,7 @@ export const useMusicStore = defineStore('music', () => {
     }));
     const record: MusicRecord = {
       id: generateId(),
-      name: name?.trim() ? name.trim() : `唱片-${new Date().toLocaleTimeString()}`,
+      name: name?.trim() ? name.trim() : `Music-${new Date().toLocaleTimeString()}`,
       createdAt: Date.now(),
       noteIds: safe.map((m) => m.noteId),
       mix: safe,
@@ -242,7 +241,7 @@ export const useMusicStore = defineStore('music', () => {
     persistMusic(musicRecords.value, pinnedId.value, mp3ReadyAt.value);
 
     // Google：跨裝置保存置頂唱片
-    void saveRemotePinnedIfGoogle(recordId ? getRecordById(recordId) ?? null : null);
+    void saveRemotePinnedIfGoogle(recordId ? (getRecordById(recordId) ?? null) : null);
   }
 
   function shareRecord(recordId: string): string | null {

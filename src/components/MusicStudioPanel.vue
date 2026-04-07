@@ -230,7 +230,7 @@ async function copyShareCode() {
 const panels = [
   {
     id: 'share',
-    title: '分享區',
+    title: 'share',
     state: shareCode, // 這裡傳入原本的 ref
     placeholder: 'STANDBY...',
     actionLabel: 'Copy',
@@ -238,7 +238,7 @@ const panels = [
   },
   {
     id: 'import',
-    title: '匯入',
+    title: 'import',
     state: importCode,
     placeholder: 'AWAITING...',
     actionLabel: 'Import',
@@ -310,20 +310,19 @@ onUnmounted(() => {
 
 <template>
   <section class="space-y-8 px-6 pt-4 pb-8 sm:px-8">
-    <header class="z-10 flex flex-col justify-between gap-4 border-b border-stone-300 pb-6 md:flex-row md:items-center">
+    <header class="z-10 flex flex-col justify-between gap-4 border-b border-stone-300 pb-6">
       <p class="mt-2 text-stone-600">
-        挑選最多 5 項碎片，揉合時間與音量，<br class="hidden sm:flex" />
-        煉製專屬的 30 秒靜心旋律。
+        Select up to 5 fragments to blend time and volume, crafting your unique 30-second meditation melody.
       </p>
       <div
-        class="flex items-center gap-3 self-end rounded-2xl border border-stone-300 bg-gray-50 px-4 py-2.5 shadow-sm backdrop-blur-sm md:self-center"
+        class="ml-auto flex items-center gap-3 self-end rounded-2xl border border-stone-300 bg-gray-50 px-4 py-2.5 shadow-sm backdrop-blur-sm md:self-center"
       >
         <div class="relative flex h-3 w-3">
           <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-500 opacity-75"></span>
           <span class="relative inline-flex h-3 w-3 rounded-full bg-amber-500"></span>
         </div>
         <span class="text-sm font-bold tracking-tight text-stone-700"
-          >可用材料：{{ fragments.unlockedNoteIds.length }}</span
+          >Materials: {{ fragments.unlockedNoteIds.length }}</span
         >
       </div>
     </header>
@@ -332,13 +331,12 @@ onUnmounted(() => {
       <div class="flex flex-wrap items-center justify-between gap-2 px-1">
         <section class="flex items-center gap-2 text-stone-700">
           <AudioLines class="h-7 w-7" />
-          <h3 class="font-mono text-lg font-bold tracking-widest uppercase">工作檯</h3>
+          <h3 class="font-mono text-lg font-bold tracking-widest uppercase">Workbench</h3>
         </section>
-        <!-- 按鍵 -->
         <div class="ml-auto flex flex-wrap items-center justify-end gap-2">
           <BaseButton
             v-if="tracks.length > 0"
-            :label="previewPlaying ? '停止試聽' : '試聽混音'"
+            :label="previewPlaying ? 'Stop Preview' : 'Preview Mix'"
             bg-color="bg-white"
             text-color="text-stone-700"
             shadow-color="168, 162, 158"
@@ -351,7 +349,7 @@ onUnmounted(() => {
           </BaseButton>
 
           <BaseButton
-            label="新增音軌"
+            label="Add Track"
             bg-color="bg-stone-800"
             shadow-color="168, 162, 158"
             :disabled="!canAddTrack"
@@ -363,13 +361,12 @@ onUnmounted(() => {
           </BaseButton>
         </div>
       </div>
-      <!-- 未有音軌時 -->
+
       <div
         v-if="tracks.length === 0"
         class="relative flex flex-col items-center justify-center rounded-[32px] border-2 border-dashed border-stone-400 bg-stone-50/50 py-12"
       >
-        <p class="text-theme text-wrap">加入音軌開始製作！</p>
-        <!-- 背景圖 -->
+        <p class="text-theme text-wrap">Add tracks to start crafting!</p>
         <div class="pointer-events-none absolute -right-4 -bottom-4 opacity-5 select-none">
           <svg width="120" height="120" viewBox="0 0 24 24">
             <path
@@ -379,7 +376,7 @@ onUnmounted(() => {
           </svg>
         </div>
       </div>
-      <!-- 音軌列表 -->
+
       <div v-if="tracks.length > 0" class="flex flex-col gap-4">
         <transition-group name="list" tag="div" class="grid gap-4">
           <div
@@ -401,7 +398,7 @@ onUnmounted(() => {
 
               <ActionIconButton
                 :icon="Trash2"
-                title="刪除"
+                title="Delete"
                 variant="red"
                 class="absolute top-4 right-4 bg-transparent p-1.5 opacity-0 group-hover:opacity-100 hover:bg-red-300/20"
                 @click="removeTrack(idx)"
@@ -415,7 +412,7 @@ onUnmounted(() => {
                     :for="'track-' + type + '-' + idx"
                     class="cursor-pointer text-sm font-black tracking-widest text-stone-500 uppercase"
                   >
-                    {{ type === 'offsetSec' ? '出現時間' : '音量' }}
+                    {{ type === 'offsetSec' ? 'Start Time' : 'Volume' }}
                   </label>
                   <span class="rounded px-2 py-0.5 font-mono font-bold text-amber-700">
                     {{ type === 'offsetSec' ? t.offsetSec.toFixed(1) + 's' : Math.round(t.volume * 100) + '%' }}
@@ -475,18 +472,16 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- 收藏夾 -->
     <div class="space-y-6 border-b border-stone-300 pb-6">
       <section class="flex items-center gap-2 text-stone-700">
         <Disc2 class="h-7 w-7" />
-        <h3 class="font-mono text-lg font-bold tracking-widest uppercase">收藏夾</h3>
+        <h3 class="font-mono text-lg font-bold tracking-widest uppercase">Collection</h3>
       </section>
       <div
         v-if="music.musicRecords.length === 0"
         class="relative flex flex-col items-center justify-center rounded-[32px] border-2 border-dashed border-stone-400 bg-stone-50/50 py-12"
       >
-        <p class="text-theme">現在沒有音樂收藏</p>
-        <!-- 背景圖 -->
+        <p class="text-theme">No records collected yet</p>
         <div class="pointer-events-none absolute -right-4 -bottom-4 opacity-5 select-none">
           <svg width="120" height="120" viewBox="0 0 24 24">
             <path
@@ -496,7 +491,6 @@ onUnmounted(() => {
           </svg>
         </div>
       </div>
-      <!-- 收藏列表 -->
       <div v-if="music.musicRecords.length > 0">
         <transition-group name="fade" tag="div" class="grid grid-cols-1 gap-6 md:grid-cols-2">
           <div
@@ -504,7 +498,6 @@ onUnmounted(() => {
             :key="r.id"
             class="group relative flex flex-col rounded-3xl border-3 border-stone-800 bg-stone-300 p-2 shadow-[4px_4px_0_rgb(87,83,78)] transition-all hover:-translate-y-0.5 hover:shadow-[6px_6px_0_rgb(87,83,78)]"
           >
-            <!-- 置頂唱片 -->
             <div v-if="music.pinnedId === r.id" class="absolute -top-4 -left-4 z-20">
               <div
                 class="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500 text-white shadow-md shadow-gray-600"
@@ -512,12 +505,11 @@ onUnmounted(() => {
                 <Pin class="h-5 w-5 fill-current" />
               </div>
             </div>
-            <!-- 唱片 -->
-            <div class="flex flex-1 flex-col rounded-[18px] bg-stone-400/30 p-4 shadow-inner">
+            <div class="flex flex-1 flex-col rounded-[18px] bg-stone-400/30 px-4 py-5 shadow-inner">
               <div class="relative mb-4 min-h-[70px] rounded-xl bg-stone-900 p-4">
                 <section class="min-w-0 flex-1">
                   <h5 class="truncate font-mono text-lg font-bold tracking-wider text-stone-100">{{ r.name }}</h5>
-                  <div class="mt-1 flex items-center gap-2 font-mono text-xs font-black text-stone-300 uppercase">
+                  <div class="mt-3 flex items-center gap-2 font-mono text-xs font-black text-stone-300 uppercase">
                     <span class="rounded bg-amber-900/50 px-1.5 py-0.5 text-amber-400 ring-1 ring-amber-900"
                       >Registered</span
                     >
@@ -550,27 +542,27 @@ onUnmounted(() => {
                 <ActionIconButton
                   :icon="music.pinnedId === r.id ? PinOff : Pin"
                   :variant="music.pinnedId === r.id ? 'emerald' : 'stone'"
-                  :title="music.pinnedId === r.id ? '取消置頂' : '置頂'"
+                  :title="music.pinnedId === r.id ? 'Unpin' : 'Pin'"
                   class="button-3d-stone"
                   @click="music.setPinned(music.pinnedId === r.id ? null : r.id)"
                 />
                 <ActionIconButton
                   :icon="SquarePen"
-                  title="修改名稱"
+                  title="Rename"
                   variant="stone"
                   class="button-3d-stone"
                   @click="beginRename(r)"
                 />
                 <ActionIconButton
                   :icon="Share2"
-                  title="分享"
+                  title="Share"
                   variant="stone"
                   class="button-3d-stone"
                   @click="startShare(r.id)"
                 />
                 <ActionIconButton
                   :icon="Trash2"
-                  title="刪除"
+                  title="Delete"
                   variant="red"
                   class="button-3d-stone"
                   @click="confirmDelete(r.id)"
@@ -578,7 +570,6 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <!-- 改名標籤 -->
             <div
               v-if="editTargetId === r.id"
               class="absolute inset-x-2 top-4 z-30 bg-amber-100 px-4 pt-4 pb-2 shadow-lg ring-1 shadow-gray-600 ring-amber-200/50"
@@ -587,7 +578,7 @@ onUnmounted(() => {
                 <span class="text-xs font-bold tracking-widest text-amber-600 uppercase">Edit Label</span>
                 <span class="text-xs text-amber-400">#001</span>
               </div>
-              <label for="edit-input" class="sr-only">編輯名稱</label>
+              <label for="edit-input" class="sr-only">Edit Name</label>
               <input
                 id="edit-input"
                 v-focus
@@ -597,28 +588,27 @@ onUnmounted(() => {
                 @keyup.esc="editTargetId = null"
                 autofocus
                 class="text-mono w-full border-b border-b-amber-300 bg-transparent px-2 text-lg text-stone-800"
-                placeholder="輸入名稱"
+                placeholder="Enter name"
               />
-              <!-- buttons -->
               <div class="mt-4 flex gap-2">
                 <button
                   type="button"
                   @click="saveRename"
                   :class="[
                     'flex-1 rounded-md py-2 text-xs font-bold transition-all',
-                    editName.trim() // 根據是否有效切換顏色樣式
+                    editName.trim()
                       ? 'cursor-pointer bg-amber-600 text-white hover:bg-amber-700 active:scale-95'
                       : 'cursor-not-allowed bg-gray-300 text-gray-500',
                   ]"
                 >
-                  確認更新
+                  Confirm
                 </button>
                 <button
                   type="button"
                   @click="editTargetId = null"
                   class="flex-1 cursor-pointer rounded-md border border-amber-200 bg-white py-2 text-xs font-bold text-amber-600 hover:bg-gray-100 active:scale-95"
                 >
-                  取消
+                  Cancel
                 </button>
               </div>
               <div class="absolute right-0 bottom-0 h-4 w-4 rounded-tl-full bg-amber-100/50"></div>
@@ -628,13 +618,11 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- 通訊 -->
     <div class="space-y-6">
       <section class="flex items-center gap-2 text-stone-700">
         <RadioTower class="h-7 w-7" />
-        <h3 class="font-mono text-lg font-bold tracking-widest uppercase">工坊通訊</h3>
+        <h3 class="font-mono text-lg font-bold tracking-widest uppercase">Workshop Comm</h3>
       </section>
-      <!-- 本體 -->
       <div
         class="space-y-4 rounded-3xl border-4 border-stone-600 bg-stone-400 p-4 sm:space-y-6 sm:rounded-4xl sm:border-6 sm:p-8"
       >
