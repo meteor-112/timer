@@ -111,7 +111,7 @@ watch(
       <p class="sm:text-md mt-0.5 text-sm">Gather sound fragments and craft your own melodies.</p>
     </header>
 
-    <main class="relative z-10 flex flex-1 items-center justify-center px-6 pt-4 md:pt-0">
+    <main class="relative z-10 mt-5 flex flex-1 items-center justify-center px-6 pt-4 md:pt-0">
       <TimerCard />
     </main>
 

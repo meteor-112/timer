@@ -83,3 +83,12 @@ export const toast: ToastProvider = {
   error: (title) => fireToast(title, 'error'),
   info: (title) => fireToast(title, 'info'),
 };
+
+export const DangerSwal = MySwal.mixin({
+  customClass: {
+    confirmButton:
+      'bg-red-500 text-white font-bold px-3 py-2 rounded-lg mx-2 hover:bg-red-600 transition-all active:scale-95 cursor-pointer',
+    cancelButton:
+      'bg-stone-300  text-stone-700 font-bold px-4 py-2 rounded-lg mx-2 hover:bg-stone-400 transition-all cursor-pointer',
+  },
+});

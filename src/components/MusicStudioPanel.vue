@@ -4,7 +4,7 @@ import { computed, onUnmounted, ref } from 'vue';
 import BaseButton from './BaseButton.vue';
 import PlayStopButton from './PlayStopButton.vue';
 import ActionIconButton from './ActionIconButton.vue';
-import { MySwal } from '@/composables/useAlert';
+import { DangerSwal } from '@/composables/useAlert';
 import { getFragmentById } from '@/data/audioCatalog';
 import { useFragmentsStore } from '@/stores/fragments';
 import { useMusicStore, type MusicRecord, type MusicTrackMix } from '@/stores/music';
@@ -87,13 +87,13 @@ function removeTrack(idx: number) {
 
 // 刪除確認
 const confirmDelete = async (id: string) => {
-  const result = await MySwal.fire({
-    title: '確定要刪除？',
-    text: '刪除後將無法還原此數據',
+  const result = await DangerSwal.fire({
+    title: 'Are you sure?',
+    text: 'This action cannot be undone.',
     icon: 'warning',
     showCancelButton: true,
-    confirmButtonText: '確定刪除',
-    cancelButtonText: '取消',
+    confirmButtonText: 'Confirm Delete',
+    cancelButtonText: 'Cancel',
   });
 
   if (result.isConfirmed) {

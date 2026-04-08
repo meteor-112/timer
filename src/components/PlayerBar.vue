@@ -11,9 +11,9 @@ const fragments = useFragmentsStore();
 const music = useMusicStore();
 const background = useBackgroundStore();
 
-type SelectionKind = 'note' | 'record';
+type SelectionKind = 'track' | 'record';
 
-const kind = ref<SelectionKind>('note');
+const kind = ref<SelectionKind>('track');
 const selectedNoteId = ref<string>('');
 const selectedRecordId = ref<string>('');
 
@@ -22,11 +22,11 @@ const acquiredNotes = computed(() => FRAGMENT_TYPES.filter((f) => fragments.getC
 
 // 當前選中的標籤名稱
 const selectedLabel = computed((): string => {
-  if (kind.value === 'note') {
+  if (kind.value === 'track') {
     return fragments.getFragmentLabel(selectedNoteId.value) || 'SELECT A TRACK';
   }
   const rec = music.getRecordById(selectedRecordId.value);
-  return rec?.name ?? 'SELECT A MUSIC';
+  return rec?.name ?? 'SELECT A RECORD';
 });
 
 // 綁定背景播放狀態
@@ -66,7 +66,7 @@ function stop(): void {
 async function startLoop(): Promise<void> {
   stop();
 
-  if (kind.value === 'note') {
+  if (kind.value === 'track') {
     const id = selectedNoteId.value;
     if (!id) return;
     const url = getFragmentById(id)?.trackAudioUrl;
@@ -167,7 +167,7 @@ onUnmounted(() => stop());
         <div class="mt-auto border-t border-gray-400/80 pt-2">
           <div class="mb-2 grid grid-cols-2 gap-2">
             <button
-              v-for="opt in ['note', 'record'] as const"
+              v-for="opt in ['track', 'record'] as const"
               :key="opt"
               @click="kind = opt"
               class="cursor-pointer rounded border px-2 py-0.5 text-sm transition-all"
@@ -179,12 +179,12 @@ onUnmounted(() => stop());
 
           <div class="group relative">
             <select
-              v-if="kind === 'note'"
+              v-if="kind === 'track'"
               v-model="selectedNoteId"
               @change="stop()"
               class="w-full cursor-pointer appearance-none rounded border border-gray-500 bg-white/30 px-2 py-1 text-sm text-gray-700 outline-none hover:bg-white/60"
             >
-              <option value="" disabled>--- CHOOSE EFFECT ---</option>
+              <option value="" disabled>--- CHOOSE TRACK ---</option>
               <option v-for="f in acquiredNotes" :key="f.id" :value="f.id">{{ f.label }}</option>
             </select>
 
@@ -194,7 +194,7 @@ onUnmounted(() => stop());
               @change="stop()"
               class="w-full cursor-pointer appearance-none rounded border border-gray-500 bg-white/30 px-2 py-1 text-sm text-gray-700 outline-none hover:bg-white/60"
             >
-              <option value="" disabled>--- CHOOSE TRACK ---</option>
+              <option value="" disabled>--- CHOOSE RECORD ---</option>
               <option v-for="r in music.musicRecords" :key="r.id" :value="r.id">{{ r.name }}</option>
             </select>
             <ChevronDown class="absolute top-1/2 right-2 h-3 w-3 -translate-y-1/2 text-gray-500" />
@@ -214,7 +214,7 @@ onUnmounted(() => stop());
           :is-playing="isPlaying"
           :size="60"
           class="rounded-full bg-white ring ring-slate-500 active:scale-90"
-          :disabled="kind === 'note' ? !selectedNoteId : !selectedRecordId"
+          :disabled="kind === 'track' ? !selectedNoteId : !selectedRecordId"
           @click="togglePlay"
         />
       </div>

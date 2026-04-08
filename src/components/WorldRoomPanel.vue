@@ -53,10 +53,10 @@ onUnmounted(() => {
 
 const formatStatusText = computed(() => {
   return (u: { status: 'focus' | 'rest'; statusSinceMs: number }): string => {
-    if (u.status === 'rest') return '休息中';
+    if (u.status === 'rest') return 'On Break';
     const diffMin = Math.floor((nowMs.value - u.statusSinceMs) / 60000);
-    const timeText = diffMin <= 0 ? '剛剛' : `${diffMin} 分鐘`;
-    return `專注中 · ${timeText}`;
+    const timeText = diffMin <= 0 ? 'Just now' : `${diffMin} m age`;
+    return `In Focus · ${timeText}`;
   };
 });
 
@@ -79,7 +79,7 @@ const onlineUsers = computed<DisplayUser[]>(() => {
     const pinnedRecordId = music.pinnedRecord?.id ?? null;
 
     //優先取 auth.profile.name，若為空則取 auth.displayName，最後保底為「旅客」
-    const myName = auth.profile.name?.trim() || '旅客';
+    const myName = auth.profile.name?.trim() || 'Traveler';
 
     list.push({
       id: auth.uid,
@@ -95,7 +95,7 @@ const onlineUsers = computed<DisplayUser[]>(() => {
   }
 
   for (const u of world.others) {
-    list.push({ ...u, name: u.name?.trim() || '旅客', isSelf: false });
+    list.push({ ...u, name: u.name?.trim() || 'Traveler', isSelf: false });
   }
   return list;
 });
@@ -153,7 +153,7 @@ async function togglePinnedForUser(u: DisplayUser) {
 <template>
   <section class="px-6 py-4 sm:px-8">
     <h3 class="md:text-md py-2 text-sm text-[#999]">
-      在線人數： <span class="text-[#666]">{{ onlineUsers.length }}</span> 人
+      Online: <span class="text-[#666]">{{ onlineUsers.length }}</span>
     </h3>
 
     <div class="mt-2 flex flex-col gap-4">
@@ -184,13 +184,13 @@ async function togglePinnedForUser(u: DisplayUser) {
           :size="50"
           :is-playing="playingUserId === u.id"
           :disabled="!u.pinnedRecordId"
-          :aria-label="u.pinnedRecordId ? '播放音樂' : '無置頂音樂'"
+          :aria-label="u.pinnedRecordId ? 'Play music' : 'No music'"
           @click="togglePinnedForUser(u)"
         />
       </div>
 
       <div v-show="onlineUsers.length === 0" class="flex flex-col items-center py-20 text-[#bbb]">
-        <p>目前無法查看，先去登入吧！</p>
+        <p>Login to see more! Sign in now to get started.</p>
       </div>
     </div>
   </section>

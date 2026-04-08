@@ -171,7 +171,7 @@ onUnmounted(() => stopListening());
             @click="toggleListen(f.id)"
             :class="[!f.isUnlocked ? 'cursor-not-allowed opacity-40' : 'cursor-pointer hover:opacity-80']"
           >
-            {{ playingId === f.id ? '終止' : '聆聽' }}
+            {{ playingId === f.id ? 'Pause' : 'Play' }}
           </button>
         </div>
       </div>
