@@ -49,11 +49,6 @@ h2 {
   flex-direction: column;
 }
 
-.card {
-  background: #f1f1f1fa;
-  box-shadow: -5px 0px 20px rgba(79, 93, 93, 0.5);
-}
-
 .accent-pill {
   display: inline-flex;
   align-items: center;

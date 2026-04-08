@@ -106,7 +106,7 @@ watch(
 
 <template>
   <div class="relative flex min-h-screen flex-col overflow-hidden bg-[#E0E1DD]">
-    <header class="absolute z-10 px-6 pt-6 pb-2">
+    <header class="absolute sm:relative z-10 px-6 pt-6 pb-2">
       <h1 class="font-display text-lg font-semibold tracking-tight md:text-xl">Sound Collector</h1>
       <p class="sm:text-md mt-0.5 text-sm">Gather sound fragments and craft your own melodies.</p>
     </header>
@@ -118,14 +118,14 @@ watch(
     <button
       type="button"
       @click="isPlayerOpen = true"
-      class="fixed bottom-6 left-6 z-40 flex h-12 w-12 cursor-pointer items-center justify-center rounded-2xl border-2 border-slate-700 bg-slate-800 text-white shadow-lg transition-transform active:scale-95 lg:hidden"
+      class="fixed bottom-6 left-6 z-40 flex h-12 w-12 cursor-pointer items-center justify-center rounded-2xl border-2 border-slate-700 bg-slate-800 text-white shadow-lg transition-transform active:scale-95 xl:hidden"
       :class="{ 'pointer-events-none opacity-0': isPlayerOpen }"
     >
       <Music class="h-6 w-6" />
     </button>
 
     <!-- Desktop Player -->
-    <div class="fixed bottom-6 left-6 z-40 hidden lg:flex">
+    <div class="fixed bottom-6 left-6 z-40 hidden xl:flex">
       <PlayerBar />
     </div>
 
@@ -154,14 +154,14 @@ watch(
       <Transition name="fade">
         <div
           v-if="isPlayerOpen"
-          class="fixed inset-0 z-50 bg-black/20 backdrop-blur-[2px] lg:hidden"
+          class="fixed inset-0 z-50 bg-black/20 backdrop-blur-[2px] xl:hidden"
           @click="isPlayerOpen = false"
         />
       </Transition>
 
       <!-- Player Panel -->
       <Transition name="slide-left">
-        <div v-show="isPlayerOpen" class="fixed bottom-10 left-[18px] z-60 flex flex-col gap-2 sm:left-8 lg:hidden">
+        <div v-show="isPlayerOpen" class="fixed bottom-10 left-[18px] z-60 flex flex-col gap-2 sm:left-8 xl:hidden">
           <!-- 關閉 -->
           <button
             @click="isPlayerOpen = false"
@@ -186,7 +186,7 @@ watch(
           :class="drawerOpen ? 'translate-x-0' : 'translate-x-full'"
           aria-label="Side Panel"
         >
-          <div class="card flex h-full flex-col overflow-hidden">
+          <div class="flex h-full flex-col overflow-hidden bg-[#f1f1f1fa] shadow-[-5px_0px_20px_rgba(79,93,93,0.5)] sm:shadow-none">
             <section class="border-theme flex items-center justify-between gap-3 border-b px-3.5 py-3 sm:px-5 sm:py-4">
               <h2 class="text-lg sm:text-xl">{{ currentTabInfo?.label }}</h2>
               <button
